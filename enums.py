@@ -262,6 +262,26 @@ class Direction(StrEnum):
     :rtype: list[Direction]
     """
     return [direction for direction in Direction if direction is not Direction.ABOVE and direction is not Direction.BELOW]
+  
+  @classmethod
+  def flat_left(cls):
+    """
+    Returns all flat left directions. 
+
+    :return: List of flat left directions.
+    :rtype: list[Direction]
+    """
+    return [direction for direction in Direction if direction.is_left]
+
+  @classmethod
+  def flat_right(cls):
+    """
+    Returns all flat right directions. 
+
+    :return: List of flat right directions.
+    :rtype: list[Direction]
+    """
+    return [direction for direction in Direction if direction.is_right]
 
   def __str__(self) -> str:
     return self.replace("|", "")

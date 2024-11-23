@@ -1,7 +1,7 @@
 from typing import TypeGuard
 from enums import Command
 from board import Board
-from move import Move
+from game import Move
 
 def main() -> None:
   info()
@@ -23,6 +23,8 @@ def main() -> None:
         bestmove(board, restriction, value)
       case [Command.PLAY, move]:
         play(board, move)
+      case [Command.PLAY, partial_move_1, partial_move_2]:
+        play(board, f"{partial_move_1} {partial_move_2}")
       case [Command.PASS]:
         play(board, Move.PASS)
       case [Command.UNDO, *arguments]:
@@ -109,7 +111,7 @@ def newgame(arguments: list[str]) -> Board | None:
     board = Board(" ".join(arguments))
     print(board)
   except (ValueError, TypeError) as e:
-    error(f"{e}")
+    error(e)
   return board
 
 def validmoves(board: Board | None) -> None:
@@ -123,13 +125,26 @@ def bestmove(board: Board | None, restriction: str, value: str) -> None:
 
 def play(board: Board | None, move: str) -> None:
   if is_playing(board):
-    board.play(move)
-    print(board)
+    try:
+      board.play(move)
+      print(board)
+    except ValueError as e:
+      error(e)
 
 def undo(board: Board | None, arguments: list[str]) -> None:
   if is_playing(board):
     if len(arguments) <= 1:
-      pass
+      try:
+        if arguments:
+          if (amount := arguments[0]).isdigit():
+            board.undo(int(amount))
+          else:
+            raise ValueError(f"Expected a positive integer but got '{amount}'")
+        else:
+          board.undo()
+        print(board)
+      except ValueError as e:
+        error(e)
     else:
       error(f"Too many arguments for command '{Command.UNDO}'")
 
@@ -139,7 +154,7 @@ def is_playing(board: Board | None) -> TypeGuard[Board]:
     return False
   return True
 
-def error(message: str) -> None:
+def error(message: str | Exception) -> None:
   print(f"err {message}.")
 
 if __name__ == "__main__":
