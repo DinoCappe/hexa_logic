@@ -49,8 +49,7 @@ class Bug():
     :return: Bug piece.
     :rtype: Bug
     """
-    match = re.fullmatch(cls.REGEX, bug)
-    if match:
+    if (match := re.fullmatch(cls.REGEX, bug)):
       color, type, id = match.groups()
       return Bug(cls.COLORS[color], BugType(type), int(id or 0))
     raise ValueError(f"'{bug}' is not a valid BugString")
@@ -60,14 +59,14 @@ class Bug():
     self.type: Final[BugType] = bug_type
     self.id: Final[int] = bug_id
 
+  def __str__(self) -> str:
+    return f"{self.color.code}{self.type}{self.id if self.id else ""}"
+
   def __hash__(self) -> int:
     return hash(str(self))
   
   def __eq__(self, value: object) -> bool:
     return self is value or isinstance(value, Bug) and self.color is value.color and self.type is value.type and self.id == value.id
-
-  def __str__(self) -> str:
-    return f"{self.color.code}{self.type}{self.id if self.id else ""}"
 
 class Move():
   """
@@ -103,11 +102,11 @@ class Move():
     self.origin: Final[Position | None] = origin
     self.destination: Final[Position] = destination
 
+  def __str__(self) -> str:
+    return f"{self.bug}, {self.origin}, {self.destination}"
+
   def __hash__(self) -> int:
     return hash((self.bug, self.origin, self.destination))
 
   def __eq__(self, value: object) -> bool:
     return self is value or isinstance(value, Move) and self.bug == value.bug and self.origin == value.origin and self.destination == value.destination
-  
-  def __str__(self) -> str:
-    return f"{self.bug}, {self.origin}, {self.destination}"
