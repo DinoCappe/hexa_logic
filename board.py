@@ -36,7 +36,7 @@ class Board():
     self.type: Final[GameType] = type
     self.state: GameState = state
     self.turn: int = turn
-    self.moves: list[Move] = []
+    self.moves: list[Move | None] = []
     self.move_strings: list[str] = moves # TODO: Implement initial moves.
     self._pos_to_bug: dict[Position, list[Bug]] = {}
     """
@@ -64,8 +64,6 @@ class Board():
           self._bug_to_pos[Bug(color, BugType(expansion.name))] = None
     self._valid_moves_cache: Set[Move] | None = None
     # TODO: Most likely, a cache for the best move will be needed too.
-    # TODO: Implement support for Move.PASS (play, undo, stringify, etc.)
-    # TODO: Check for gameovers (play, undo).
 
   def __str__(self) -> str:
     return f"{self.type};{self.state};{self.current_player_color}[{self.current_player_turn}]{';' if len(self.moves) else ''}{';'.join(self.move_strings)}"
@@ -124,20 +122,37 @@ class Board():
       self.state = GameState.IN_PROGRESS
     if self.state is GameState.IN_PROGRESS:
       self.turn += 1
-      self.moves.append(move)
       self.move_strings.append(move_string)
+      self.moves.append(move)
       self._valid_moves_cache = None
-      self._bug_to_pos[move.bug] = move.destination
-      if move.origin:
-        self._pos_to_bug[move.origin].pop()
-      if move.destination in self._pos_to_bug:
-        self._pos_to_bug[move.destination].append(move.bug)
-      else:
-        self._pos_to_bug[move.destination] = [move.bug]
+      if move:
+        self._bug_to_pos[move.bug] = move.destination
+        if move.origin:
+          self._pos_to_bug[move.origin].pop()
+        if move.destination in self._pos_to_bug:
+          self._pos_to_bug[move.destination].append(move.bug)
+        else:
+          self._pos_to_bug[move.destination] = [move.bug]
+        black_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.BLACK, BugType.QUEEN_BEE)]) and all(self.bugs_from_pos(self.get_neighbor(queen_pos, direction)) for direction in Direction.flat())
+        white_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.WHITE, BugType.QUEEN_BEE)]) and all(self.bugs_from_pos(self.get_neighbor(queen_pos, direction)) for direction in Direction.flat())
+        if black_queen_surrounded and white_queen_surrounded:
+          self.state = GameState.DRAW
+        elif black_queen_surrounded:
+          self.state = GameState.WHITE_WINS
+        elif white_queen_surrounded:
+          self.state = GameState.BLACK_WINS
     else:
-      raise ValueError("You can't play, the game is over")
+      raise ValueError(f"You can't {"play" if move else Move.PASS} when the game is over")
 
   def undo(self, amount: int = 1) -> None:
+    """
+    Undoes the specified amount of moves.
+
+    :param amount: Amount of moves to undo, defaults to 1.
+    :type amount: int, optional
+    :raises ValueError: If there are not enough moves to undo.
+    :raises ValueError: If the game has yet to begin.
+    """
     if self.state is not GameState.NOT_STARTED:
       if len(self.moves) >= amount:
         if self.state is not GameState.IN_PROGRESS:
@@ -147,10 +162,11 @@ class Board():
           self.move_strings.pop()
           move = self.moves.pop()
           self._valid_moves_cache = None
-          self._pos_to_bug[move.destination].pop()
-          self._bug_to_pos[move.bug] = move.origin
-          if move.origin:
-            self._pos_to_bug[move.origin].append(move.bug)
+          if move:
+            self._pos_to_bug[move.destination].pop()
+            self._bug_to_pos[move.bug] = move.origin
+            if move.origin:
+              self._pos_to_bug[move.origin].append(move.bug)
         if self.turn == 0:
           self.state = GameState.NOT_STARTED
       else:
@@ -204,41 +220,48 @@ class Board():
     move = self.get_best_move()
     return self.stringify_move(move) if move else Move.PASS
   
-  def stringify_move(self, move: Move) -> str:
+  def stringify_move(self, move: Move | None) -> str:
     """
     Returns a MoveString from the given move.
 
     :param move: Move.
-    :type move: Move
+    :type move: Move | None
     :return: MoveString.
     :rtype: str
     """
-    moved: Bug = move.bug
-    relative: Bug | None = None
-    direction: Direction | None = None
-    if (dest_bugs := self.bugs_from_pos(move.destination)):
-      relative = dest_bugs[-1]
-    else:
-      for dir in Direction.flat():
-        if (neighbor_bugs := self.bugs_from_pos(self.get_neighbor(move.destination, dir))):
-          relative = neighbor_bugs[0]
-          direction = dir.opposite
-          break
-    return Move.stringify(moved, relative, direction)
+    if move:
+      moved: Bug = move.bug
+      relative: Bug | None = None
+      direction: Direction | None = None
+      if (dest_bugs := self.bugs_from_pos(move.destination)):
+        relative = dest_bugs[-1]
+      else:
+        for dir in Direction.flat():
+          if (neighbor_bugs := self.bugs_from_pos(self.get_neighbor(move.destination, dir))):
+            relative = neighbor_bugs[0]
+            direction = dir.opposite
+            break
+      return Move.stringify(moved, relative, direction)
+    return Move.PASS
   
-  def parse_move(self, move_string: str) -> Move:
+  def parse_move(self, move_string: str) -> Move | None:
     """
     Parses a MoveString.
 
     :param move_string: MoveString.
     :type move_string: str
+    :raises ValueError: If move_string is 'pass' but there are other valid moves.
     :raises ValueError: If move_string is not a valid move for the current board state.
     :raises ValueError: If bug_string_2 has not been played yet.
     :raises ValueError: If more than one direction was specified.
     :raises ValueError: If move_string is not a valid MoveString.
     :return: Move.
-    :rtype: Move
+    :rtype: Move | None
     """
+    if move_string == Move.PASS:
+      if not self.get_valid_moves():
+        return None
+      raise ValueError(f"You can't pass when you have valid moves")
     if (match := re.fullmatch(Move.REGEX, move_string)):
       bug_string_1, _, _, _, _, left_dir, bug_string_2, _, _, _, right_dir = match.groups()
       if not left_dir or not right_dir:
@@ -306,7 +329,7 @@ class Board():
                 # Add all valid placements for the current bug piece
                 self._valid_moves_cache.update(Move(bug, None, placement) for placement in self.get_valid_placements())
             # A bug piece in play can move only if it's at the top and its queen is in play and has not been moved in the previous player's turn
-            elif self.current_player_queen_in_play and self.bugs_from_pos(pos)[-1] == bug and self.moves[-1].bug != bug:
+            elif self.current_player_queen_in_play and self.bugs_from_pos(pos)[-1] == bug and self.was_not_last_moved(bug):
               # Can't move pieces that would break the hive. Pieces stacked upon other can never break the hive by moving
               if len(self.bugs_from_pos(pos)) > 1 or self.can_move_without_breaking_hive(pos):
                 match bug.type:
@@ -368,6 +391,17 @@ class Board():
     :rtype: bool
     """
     return (pos := self.pos_from_bug(bug)) != None and self.bugs_from_pos(pos)[-1] == bug
+  
+  def was_not_last_moved(self, bug: Bug) -> bool:
+    """
+    Checks whether the given bug piece was not moved in the previous turn.
+
+    :param bug: Bug piece.
+    :type bug: Bug
+    :return: Whether the bug piece was not last moved.
+    :rtype: bool
+    """
+    return not self.moves[-1] or self.moves[-1].bug != bug
 
   def get_valid_placements(self) -> Set[Position]:
     """
@@ -484,7 +518,7 @@ class Board():
     :type bug: Bug
     :param origin: Initial position of the bug piece.
     :type origin: Position
-    :param special_only: Whether to include special moves only, defaults to False
+    :param special_only: Whether to include special moves only, defaults to False.
     :type special_only: bool, optional
     :return: Set of valid Mosquito moves.
     :rtype: Set[Move]
@@ -552,7 +586,7 @@ class Board():
       for direction in Direction.flat():
         position = self.get_neighbor(origin, direction)
         # A Pillbug can move another bug piece only if it's not stacked, it's not the last moved piece, it can be moved without breaking the hive, and it's not obstructed in moving above the Pillbug itself
-        if len(bugs := self.bugs_from_pos(position)) == 1 and (neighbor := bugs[-1]) != self.moves[-1].bug and self.can_move_without_breaking_hive(position) and Move(neighbor, position, origin) in self.get_beetle_moves(neighbor, position):
+        if len(bugs := self.bugs_from_pos(position)) == 1 and self.was_not_last_moved(neighbor := bugs[-1]) and self.can_move_without_breaking_hive(position) and Move(neighbor, position, origin) in self.get_beetle_moves(neighbor, position):
           moves.update(Move(neighbor, position, move.destination) for move in self.get_beetle_moves(neighbor, position, True) if move.destination in empty_positions)
     return moves
 
