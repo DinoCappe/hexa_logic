@@ -64,7 +64,7 @@ class Board():
           self._bug_to_pos[Bug(color, BugType(expansion.name))] = None
     self._valid_moves_cache: Set[Move] | None = None
     # TODO: Most likely, a cache for the best move will be needed too.
-    self._make_initial_moves(moves)
+    self._play_initial_moves(moves)
 
   def __str__(self) -> str:
     return f"{self.type};{self.state};{self.current_player_color}[{self.current_player_turn}]{';' if len(self.moves) else ''}{';'.join(self.move_strings)}"
@@ -192,7 +192,10 @@ class Board():
     """
     if (match := re.fullmatch(f"({PlayerColor.WHITE}|{PlayerColor.BLACK})\\[(\\d+)\\]", turn)):
       color, player_turn = match.groups()
-      return 2 * int(player_turn) - 2 + list(PlayerColor).index(PlayerColor(color))
+      if (turn_number := int(player_turn)) > 0:
+        return 2 * turn_number - 2 + list(PlayerColor).index(PlayerColor(color))
+      else:
+        raise ValueError(f"The turn number must be greater than 0")
     else:
       raise ValueError(f"'{turn}' is not a valid TurnString")
 
@@ -214,7 +217,7 @@ class Board():
     type, state, turn, *moves = values
     return GameType.parse(type), GameState.parse(state), self._parse_turn(turn), moves
 
-  def _make_initial_moves(self, moves: list[str]) -> None:
+  def _play_initial_moves(self, moves: list[str]) -> None:
     """
     Make initial moves.
 
@@ -222,10 +225,19 @@ class Board():
     :type moves: list[str]
     :raises ValueError: If the amount of moves to make is not coherent with the turn number.
     """
-    if self.turn - 1 == len(moves):
+    if self.turn == len(moves):
+      old_turn = self.turn
+      old_state = self.state
+      self.turn = 0
+      self.state = GameState.NOT_STARTED
       for move in moves:
         self.play(move)
-    raise ValueError(f"Expected {self.turn - 1} moves but got {len(moves)}")
+      if old_turn != self.turn:
+        raise ValueError(f"TurnString is not correct, should be {self.current_player_color}[{self.current_player_turn}]")
+      if old_state != self.state:
+        raise ValueError(f"GameStateString is not correct, should be {self.state}")
+    else:
+      raise ValueError(f"Expected {self.turn} moves but got {len(moves)}")
 
   def _get_valid_moves(self) -> Set[Move]:
     """
