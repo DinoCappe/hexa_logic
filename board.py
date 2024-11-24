@@ -275,6 +275,12 @@ class Board():
     return self._bug_to_pos[bug] if bug in self._bug_to_pos else None
 
   def get_valid_moves(self) -> Set[Move]:
+    """
+    Calculates the set of valid moves for the current player.
+
+    :return: Set of valid moves.
+    :rtype: Set[Move]
+    """
     if not self._valid_moves_cache:
       self._valid_moves_cache = set()
       if self.state is GameState.NOT_STARTED or self.state is GameState.IN_PROGRESS:
@@ -292,17 +298,17 @@ class Board():
               # Can't place the queen on the first turn
               if bug.type is not BugType.QUEEN_BEE and self.can_bug_be_played(bug):
                 # Add all valid placements for the current bug piece (can be placed only around the first White player's first piece)
-                self._valid_moves_cache.update([Move(bug, None, self.get_neighbor(self.ORIGIN, direction)) for direction in Direction.flat()])
+                self._valid_moves_cache.update(Move(bug, None, self.get_neighbor(self.ORIGIN, direction)) for direction in Direction.flat())
             # Bug piece has not been played yet
             elif not pos:
               # Check hand placement, and turn and queen placement, related rule.
               if self.can_bug_be_played(bug) and (self.current_player_turn != 4 or (self.current_player_turn == 4 and (self.current_player_queen_in_play or (not self.current_player_queen_in_play and bug.type is BugType.QUEEN_BEE)))):
                 # Add all valid placements for the current bug piece
-                self._valid_moves_cache.update([Move(bug, None, placement) for placement in self.get_valid_placements()])
-            # A bug piece in play can move only if it's at the top and its queen is in play 
-            elif self.current_player_queen_in_play and self.bugs_from_pos(pos)[-1] == bug:
-              # Can't move pieces that would break the hive. Pieces stacked upon other can never break the hive by moving.
-              if self.bugs_from_pos(pos) or self.can_move_without_breaking_hive(pos):
+                self._valid_moves_cache.update(Move(bug, None, placement) for placement in self.get_valid_placements())
+            # A bug piece in play can move only if it's at the top and its queen is in play and has not been moved in the previous player's turn
+            elif self.current_player_queen_in_play and self.bugs_from_pos(pos)[-1] == bug and self.moves[-1].bug != bug:
+              # Can't move pieces that would break the hive. Pieces stacked upon other can never break the hive by moving
+              if len(self.bugs_from_pos(pos)) > 1 or self.can_move_without_breaking_hive(pos):
                 match bug.type:
                   case BugType.QUEEN_BEE:
                     self._valid_moves_cache.update(self.get_sliding_moves(bug, pos, 1))
@@ -315,17 +321,18 @@ class Board():
                   case BugType.SOLDIER_ANT:
                     self._valid_moves_cache.update(self.get_sliding_moves(bug, pos))
                   case BugType.MOSQUITO:
-                    pass
+                    self._valid_moves_cache.update(self.get_mosquito_moves(bug, pos))
                   case BugType.LADYBUG:
                     self._valid_moves_cache.update(self.get_ladybug_moves(bug, pos))
                   case BugType.PILLBUG:
                     self._valid_moves_cache.update(self.get_sliding_moves(bug, pos, 1))
+                    self._valid_moves_cache.update(self.get_pillbug_special_moves(pos))
               else:
                 match bug.type:
                   case BugType.MOSQUITO:
-                    pass
+                    self._valid_moves_cache.update(self.get_mosquito_moves(bug, pos, True))
                   case BugType.PILLBUG:
-                    pass
+                    self._valid_moves_cache.update(self.get_pillbug_special_moves(pos))
                   case _:
                     pass
     return self._valid_moves_cache
@@ -384,9 +391,27 @@ class Board():
     return placements
 
   def get_neighbor(self, position: Position, direction: Direction) -> Position:
+    """
+    Returns the neighboring position from the given direction.
+
+    :param position: Central position.
+    :type position: Position
+    :param direction: Direction of movement.
+    :type direction: Direction
+    :return: Neighboring position in the specified direction.
+    :rtype: Position
+    """
     return position + self.NEIGHBOR_DELTAS[direction.delta_index]
 
   def can_move_without_breaking_hive(self, position: Position) -> bool:
+    """
+    Checks whether a bug piece can be moved from the given position.
+
+    :param position: Position where the bug piece is located.
+    :type position: Position
+    :return: Whether a bug piece in the given position can move.
+    :rtype: bool
+    """
     # Try gaps heuristic first
     neighbors: list[list[Bug]] = [self.bugs_from_pos(self.get_neighbor(position, direction)) for direction in Direction.flat()]
     # If there is more than 1 gap, perform a DFS to check if all neighbors are still connected in some way.
@@ -403,7 +428,7 @@ class Board():
     # If there is only 1 gap, then all neighboring pieces are connected even without the piece at the given position.
     return True
 
-  def get_beetle_moves(self, bug: Bug, origin: Position) -> Set[Move]:
+  def get_beetle_moves(self, bug: Bug, origin: Position, virtual: bool = False) -> Set[Move]:
     """
     Calculates the set of valid moves for a Beetle.
 
@@ -416,14 +441,15 @@ class Board():
     """
     moves: Set[Move] = set()
     for direction in Direction.flat():
-      height = len(self.bugs_from_pos(origin)) - 1 # Don't consider the Beetle
+      # Don't consider the Beetle in the height, unless it's a virtual move (the bug is not actually in origin, but moving at the top of origin is part of its full move due to the Pillbug special move).
+      height = len(self.bugs_from_pos(origin)) - 1 + virtual
       destination = self.get_neighbor(origin, direction)
       dest_height = len(self.bugs_from_pos(destination))
       left_height = len(self.bugs_from_pos(self.get_neighbor(origin, direction.left_of)))
       right_height = len(self.bugs_from_pos(self.get_neighbor(origin, direction.right_of)))
       # Logic from http://boardgamegeek.com/wiki/page/Hive_FAQ#toc9
       if not ((height == 0 and dest_height == 0 and left_height == 0 and right_height == 0) or (dest_height < left_height and dest_height < right_height and height < left_height and height < right_height)):
-        moves.add(Move(bug, origin, destination)) # TODO: Is the height / direction needed?
+        moves.add(Move(bug, origin, destination))
     return moves
 
   def get_grasshopper_moves(self, bug: Bug, origin: Position) -> Set[Move]:
@@ -450,8 +476,48 @@ class Board():
         moves.add(Move(bug, origin, destination))
     return moves
 
-  def get_mosquito_moves(self, bug: Bug, origin: Position):
-    pass
+  def get_mosquito_moves(self, bug: Bug, origin: Position, special_only: bool = False) -> Set[Move]:
+    """
+    Calculates the set of valid Mosquito moves, which copies neighboring bug pieces moves, and can be either normal or special (Pillbug) moves depending on the special_only flag.
+
+    :param bug: Mosquito bug piece.
+    :type bug: Bug
+    :param origin: Initial position of the bug piece.
+    :type origin: Position
+    :param special_only: Whether to include special moves only, defaults to False
+    :type special_only: bool, optional
+    :return: Set of valid Mosquito moves.
+    :rtype: Set[Move]
+    """
+    if len(self.bugs_from_pos(origin)) > 1:
+      return self.get_beetle_moves(bug, origin)
+    moves: Set[Move] = set()
+    bugs_copied: Set[BugType] = set()
+    for direction in Direction.flat():
+      if (bugs := self.bugs_from_pos(self.get_neighbor(origin, direction))) and (neighbor := bugs[-1]).type not in bugs_copied:
+         bugs_copied.add(neighbor.type)
+         if special_only:
+           if neighbor.type == BugType.PILLBUG:
+             moves.update(self.get_pillbug_special_moves(origin))
+         else:
+          match neighbor.type:
+            case BugType.QUEEN_BEE:
+              moves.update(self.get_sliding_moves(bug, origin, 1))
+            case BugType.SPIDER:
+              moves.update(self.get_sliding_moves(bug, origin, 3))
+            case BugType.BEETLE:
+              moves.update(self.get_beetle_moves(bug, origin))
+            case BugType.GRASSHOPPER:
+              moves.update(self.get_grasshopper_moves(bug, origin))
+            case BugType.SOLDIER_ANT:
+              moves.update(self.get_sliding_moves(bug, origin))
+            case BugType.LADYBUG:
+              moves.update(self.get_ladybug_moves(bug, origin))
+            case BugType.PILLBUG:
+              moves.update(self.get_sliding_moves(bug, origin, 1))
+            case BugType.MOSQUITO:
+              pass
+    return moves
 
   def get_ladybug_moves(self, bug: Bug, origin: Position) -> Set[Move]:
     """
@@ -471,10 +537,38 @@ class Board():
       for final_move in self.get_beetle_moves(bug, second_move.destination) if len(self.bugs_from_pos(final_move.destination)) and final_move.destination != origin
     }
 
-  def get_pillbug_special_moves(self, bug: Bug, origin: Position):
-    pass
+  def get_pillbug_special_moves(self, origin: Position) -> Set[Move]:
+    """
+    Calculates the set of valid special Pillbug moves.
 
-  def get_sliding_moves(self, bug: Bug, origin: Position, depth: int = 0):
+    :param origin: Position of the Pillbug.
+    :type origin: Position
+    :return: Set of valid special Pillbug moves.
+    :rtype: Set[Move]
+    """
+    moves: Set[Move] = set()
+    # There must be at least one empty neighboring tile for the Pillbug to move another bug piece
+    if (empty_positions := [self.get_neighbor(origin, direction) for direction in Direction.flat() if not self.bugs_from_pos(self.get_neighbor(origin, direction))]):
+      for direction in Direction.flat():
+        position = self.get_neighbor(origin, direction)
+        # A Pillbug can move another bug piece only if it's not stacked, it's not the last moved piece, it can be moved without breaking the hive, and it's not obstructed in moving above the Pillbug itself
+        if len(bugs := self.bugs_from_pos(position)) == 1 and (neighbor := bugs[-1]) != self.moves[-1].bug and self.can_move_without_breaking_hive(position) and Move(neighbor, position, origin) in self.get_beetle_moves(neighbor, position):
+          moves.update(Move(neighbor, position, move.destination) for move in self.get_beetle_moves(neighbor, position, True) if move.destination in empty_positions)
+    return moves
+
+  def get_sliding_moves(self, bug: Bug, origin: Position, depth: int = 0) -> Set[Move]:
+    """
+    Calculates the set of valid sliding moves, optionally with a fixed depth.
+
+    :param bug: Moving bug piece.
+    :type bug: Bug
+    :param origin: Initial position of the bug piece.
+    :type origin: Position
+    :param depth: Optional fixed depth of the move, defaults to 0.
+    :type depth: int, optional
+    :return: Set of valid sliding moves.
+    :rtype: Set[Move]
+    """
     destinations: Set[Position] = set()
     visited: Set[Position] = set()
     stack: Set[tuple[Position, int]] = {(origin, 0)}
