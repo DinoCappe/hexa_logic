@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Enums &#8212; Hivemind 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=782d985c" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Game utilities" href="game.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-enums">
+<span id="enums"></span><h1>Enums<a class="headerlink" href="#module-enums" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="enums.BugType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">enums.</span></span><span class="sig-name descname"><span class="pre">BugType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names=&lt;not</span> <span class="pre">given&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#BugType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.BugType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></p>
+<p>Bug type.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.BEETLE">
+<span class="sig-name descname"><span class="pre">BEETLE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'B'</span></em><a class="headerlink" href="#enums.BugType.BEETLE" title="Link to this definition">¶</a></dt>
+<dd><p>Beetle.  
+Moves by 1 cell, but can also go above the hive.  
+Pieces below the Beetle cannot move and the cell is now considered of the Beetle’s color.  
+Can go above other pieces already above the hive, piling up.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.GRASSHOPPER">
+<span class="sig-name descname"><span class="pre">GRASSHOPPER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'G'</span></em><a class="headerlink" href="#enums.BugType.GRASSHOPPER" title="Link to this definition">¶</a></dt>
+<dd><p>Grasshopper.  
+Moves in a straight by jumping over other pieces.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.LADYBUG">
+<span class="sig-name descname"><span class="pre">LADYBUG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'L'</span></em><a class="headerlink" href="#enums.BugType.LADYBUG" title="Link to this definition">¶</a></dt>
+<dd><p>Ladybug.  
+Available with GameType expansion L.  
+Moves by exactly 3 cells, like a Spider, but the first 2 steps must be above the hive.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.MOSQUITO">
+<span class="sig-name descname"><span class="pre">MOSQUITO</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'M'</span></em><a class="headerlink" href="#enums.BugType.MOSQUITO" title="Link to this definition">¶</a></dt>
+<dd><p>Mosquito.  
+Available with GameType expansion M.  
+Moves by coping adiacent pieces’ moveset.  
+If it goes above the hive by coping a Beetle, it can keep moving like a Beetle until it goes back down.  
+If it’s only neighboring piece is another Mosquito, it cannot move.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.PILLBUG">
+<span class="sig-name descname"><span class="pre">PILLBUG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'P'</span></em><a class="headerlink" href="#enums.BugType.PILLBUG" title="Link to this definition">¶</a></dt>
+<dd><p>Pillbug.  
+Available with GameType expansion P.  
+Moves by 1 cell.  
+Instead of moving itself, it can move a neighboring piece above itself, and then back down on a neighboring empty cell.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.QUEEN_BEE">
+<span class="sig-name descname"><span class="pre">QUEEN_BEE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Q'</span></em><a class="headerlink" href="#enums.BugType.QUEEN_BEE" title="Link to this definition">¶</a></dt>
+<dd><p>Queen Bee.  
+Moves by 1 cell.  
+Must be placed after the first turn and by the fourth.  
+Surrounding this piece with other pieces is the win condition.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.SOLDIER_ANT">
+<span class="sig-name descname"><span class="pre">SOLDIER_ANT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'A'</span></em><a class="headerlink" href="#enums.BugType.SOLDIER_ANT" title="Link to this definition">¶</a></dt>
+<dd><p>Soldier Ant.  
+Moves by any amount of cells around the hive.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.BugType.SPIDER">
+<span class="sig-name descname"><span class="pre">SPIDER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'S'</span></em><a class="headerlink" href="#enums.BugType.SPIDER" title="Link to this definition">¶</a></dt>
+<dd><p>Spider.  
+Moves by exactly 3 cells around the hive.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enums.Command">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">enums.</span></span><span class="sig-name descname"><span class="pre">Command</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names=&lt;not</span> <span class="pre">given&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#Command"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.Command" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></p>
+<p>Available command.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.BESTMOVE">
+<span class="sig-name descname"><span class="pre">BESTMOVE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'bestmove'</span></em><a class="headerlink" href="#enums.Command.BESTMOVE" title="Link to this definition">¶</a></dt>
+<dd><p>Search for the best move for the current game.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#bestmove">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#bestmove</a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.EXIT">
+<span class="sig-name descname"><span class="pre">EXIT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'exit'</span></em><a class="headerlink" href="#enums.Command.EXIT" title="Link to this definition">¶</a></dt>
+<dd><p>Exits the engine.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.HELP">
+<span class="sig-name descname"><span class="pre">HELP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'help'</span></em><a class="headerlink" href="#enums.Command.HELP" title="Link to this definition">¶</a></dt>
+<dd><p>Displays the list of available commands.  
+If a command is specified, displays the help for that command.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.INFO">
+<span class="sig-name descname"><span class="pre">INFO</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'info'</span></em><a class="headerlink" href="#enums.Command.INFO" title="Link to this definition">¶</a></dt>
+<dd><p>Displays the identifier string of the engine and list of its capabilities.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#info">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#info</a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.NEWGAME">
+<span class="sig-name descname"><span class="pre">NEWGAME</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'newgame'</span></em><a class="headerlink" href="#enums.Command.NEWGAME" title="Link to this definition">¶</a></dt>
+<dd><p>Starts a game. The game type and state depend on the command arguments.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#newgame">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#newgame</a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.OPTIONS">
+<span class="sig-name descname"><span class="pre">OPTIONS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'options'</span></em><a class="headerlink" href="#enums.Command.OPTIONS" title="Link to this definition">¶</a></dt>
+<dd><p>Displays the available options for the engine.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#options">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#options</a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.PASS">
+<span class="sig-name descname"><span class="pre">PASS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'pass'</span></em><a class="headerlink" href="#enums.Command.PASS" title="Link to this definition">¶</a></dt>
+<dd><p>Plays a passing move in the current game.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#pass">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#pass</a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.PLAY">
+<span class="sig-name descname"><span class="pre">PLAY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'play'</span></em><a class="headerlink" href="#enums.Command.PLAY" title="Link to this definition">¶</a></dt>
+<dd><p>Plays the specified MoveString in the current game.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#play">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#play</a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.UNDO">
+<span class="sig-name descname"><span class="pre">UNDO</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'undo'</span></em><a class="headerlink" href="#enums.Command.UNDO" title="Link to this definition">¶</a></dt>
+<dd><p>Undoes the specified amount of moves in the current game.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#undo">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#undo</a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Command.VALIDMOVES">
+<span class="sig-name descname"><span class="pre">VALIDMOVES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'validmoves'</span></em><a class="headerlink" href="#enums.Command.VALIDMOVES" title="Link to this definition">¶</a></dt>
+<dd><p>Displays a list of every valid move in the current game.  
+See <a class="reference external" href="https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#validmoves">https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol#validmoves</a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enums.Direction">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">enums.</span></span><span class="sig-name descname"><span class="pre">Direction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names=&lt;not</span> <span class="pre">given&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#Direction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.Direction" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></p>
+<p>Hexagonal multi-layered grid direction.  
+The grid is assumed to be oriented with cells point-up.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.ABOVE">
+<span class="sig-name descname"><span class="pre">ABOVE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'|'</span></em><a class="headerlink" href="#enums.Direction.ABOVE" title="Link to this definition">¶</a></dt>
+<dd><p>Above of the hex: bug</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.BELOW">
+<span class="sig-name descname"><span class="pre">BELOW</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#enums.Direction.BELOW" title="Link to this definition">¶</a></dt>
+<dd><p>Below of the hex: described by another of the other direction indications.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.DOWN_LEFT">
+<span class="sig-name descname"><span class="pre">DOWN_LEFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'/|'</span></em><a class="headerlink" href="#enums.Direction.DOWN_LEFT" title="Link to this definition">¶</a></dt>
+<dd><p>Down left side of the hex: /bug</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.DOWN_RIGHT">
+<span class="sig-name descname"><span class="pre">DOWN_RIGHT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'|\\'</span></em><a class="headerlink" href="#enums.Direction.DOWN_RIGHT" title="Link to this definition">¶</a></dt>
+<dd><p>Down right side of the hex: bug</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.LEFT">
+<span class="sig-name descname"><span class="pre">LEFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'-|'</span></em><a class="headerlink" href="#enums.Direction.LEFT" title="Link to this definition">¶</a></dt>
+<dd><p>Left side of the hex: -bug</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.RIGHT">
+<span class="sig-name descname"><span class="pre">RIGHT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'|-'</span></em><a class="headerlink" href="#enums.Direction.RIGHT" title="Link to this definition">¶</a></dt>
+<dd><p>Right side of the hex: bug-</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.UP_LEFT">
+<span class="sig-name descname"><span class="pre">UP_LEFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'\\|'</span></em><a class="headerlink" href="#enums.Direction.UP_LEFT" title="Link to this definition">¶</a></dt>
+<dd><p>Up left side of the hex: bug</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.Direction.UP_RIGHT">
+<span class="sig-name descname"><span class="pre">UP_RIGHT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'|/'</span></em><a class="headerlink" href="#enums.Direction.UP_RIGHT" title="Link to this definition">¶</a></dt>
+<dd><p>Up right side of the hex: bug/</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="enums.Direction.delta_index">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delta_index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#enums.Direction.delta_index" title="Link to this definition">¶</a></dt>
+<dd><p>Direction index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="enums.Direction.flat">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">flat</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#Direction.flat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.Direction.flat" title="Link to this definition">¶</a></dt>
+<dd><p>Returns all flat directions (no directions to move up or down a plane).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of flat directions.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#enums.Direction" title="enums.Direction">Direction</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="enums.Direction.flat_left">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">flat_left</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#Direction.flat_left"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.Direction.flat_left" title="Link to this definition">¶</a></dt>
+<dd><p>Returns all flat left directions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of flat left directions.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#enums.Direction" title="enums.Direction">Direction</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="enums.Direction.flat_right">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">flat_right</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#Direction.flat_right"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.Direction.flat_right" title="Link to this definition">¶</a></dt>
+<dd><p>Returns all flat right directions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of flat right directions.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#enums.Direction" title="enums.Direction">Direction</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="enums.Direction.is_left">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_left</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#enums.Direction.is_left" title="Link to this definition">¶</a></dt>
+<dd><p>Whether it’s a left direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="enums.Direction.is_right">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_right</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#enums.Direction.is_right" title="Link to this definition">¶</a></dt>
+<dd><p>Whether it’s a right direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="enums.Direction.left_of">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">left_of</span></span><a class="headerlink" href="#enums.Direction.left_of" title="Link to this definition">¶</a></dt>
+<dd><p>Direction to the left.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#enums.Direction" title="enums.Direction">Direction</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="enums.Direction.opposite">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">opposite</span></span><a class="headerlink" href="#enums.Direction.opposite" title="Link to this definition">¶</a></dt>
+<dd><p>Opposite direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#enums.Direction" title="enums.Direction">Direction</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="enums.Direction.right_of">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">right_of</span></span><a class="headerlink" href="#enums.Direction.right_of" title="Link to this definition">¶</a></dt>
+<dd><p>Direction to the right.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#enums.Direction" title="enums.Direction">Direction</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enums.GameState">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">enums.</span></span><span class="sig-name descname"><span class="pre">GameState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names=&lt;not</span> <span class="pre">given&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#GameState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.GameState" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></p>
+<p>Game state.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameState.BLACK_WINS">
+<span class="sig-name descname"><span class="pre">BLACK_WINS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'BlackWins'</span></em><a class="headerlink" href="#enums.GameState.BLACK_WINS" title="Link to this definition">¶</a></dt>
+<dd><p>Game ended with victory for black.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameState.DRAW">
+<span class="sig-name descname"><span class="pre">DRAW</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Draw'</span></em><a class="headerlink" href="#enums.GameState.DRAW" title="Link to this definition">¶</a></dt>
+<dd><p>Game ended with a draw.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameState.IN_PROGRESS">
+<span class="sig-name descname"><span class="pre">IN_PROGRESS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'InProgress'</span></em><a class="headerlink" href="#enums.GameState.IN_PROGRESS" title="Link to this definition">¶</a></dt>
+<dd><p>Game in progress.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameState.NOT_STARTED">
+<span class="sig-name descname"><span class="pre">NOT_STARTED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'NotStarted'</span></em><a class="headerlink" href="#enums.GameState.NOT_STARTED" title="Link to this definition">¶</a></dt>
+<dd><p>Game not started yet.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameState.WHITE_WINS">
+<span class="sig-name descname"><span class="pre">WHITE_WINS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'WhiteWins'</span></em><a class="headerlink" href="#enums.GameState.WHITE_WINS" title="Link to this definition">¶</a></dt>
+<dd><p>Game ended with victory for white.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="enums.GameState.parse">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#GameState.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.GameState.parse" title="Link to this definition">¶</a></dt>
+<dd><p>Parses a GameStateString.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>state</strong> (<em>str</em>) – GameStateString.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>GameState.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#enums.GameState" title="enums.GameState">GameState</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enums.GameType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">enums.</span></span><span class="sig-name descname"><span class="pre">GameType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names=&lt;not</span> <span class="pre">given&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#GameType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.GameType" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Flag</span></code></p>
+<p>Game type.  
+Determines the available pieces.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameType.Base">
+<span class="sig-name descname"><span class="pre">Base</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#enums.GameType.Base" title="Link to this definition">¶</a></dt>
+<dd><p>Base GameType, without expansions.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameType.L">
+<span class="sig-name descname"><span class="pre">L</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#enums.GameType.L" title="Link to this definition">¶</a></dt>
+<dd><p>Ladybug GameType, with the Ladybug expansion.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameType.M">
+<span class="sig-name descname"><span class="pre">M</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#enums.GameType.M" title="Link to this definition">¶</a></dt>
+<dd><p>Mosquito GameType, with the Mosquito expansion.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.GameType.P">
+<span class="sig-name descname"><span class="pre">P</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8</span></em><a class="headerlink" href="#enums.GameType.P" title="Link to this definition">¶</a></dt>
+<dd><p>Pillbug GameType, with the Pillbug expansion.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="enums.GameType.parse">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#GameType.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.GameType.parse" title="Link to this definition">¶</a></dt>
+<dd><p>Parses a GameTypeString.  
+The GameTypeString always needs to include the Base GameType.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>type</strong> (<em>str</em>) – GameTypeString.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If it’s not a valid GameTypeString.</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>GameType.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#enums.GameType" title="enums.GameType">GameType</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enums.PlayerColor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">enums.</span></span><span class="sig-name descname"><span class="pre">PlayerColor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names=&lt;not</span> <span class="pre">given&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enums.html#PlayerColor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enums.PlayerColor" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></p>
+<p>Player color.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.PlayerColor.BLACK">
+<span class="sig-name descname"><span class="pre">BLACK</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Black'</span></em><a class="headerlink" href="#enums.PlayerColor.BLACK" title="Link to this definition">¶</a></dt>
+<dd><p>Black.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="enums.PlayerColor.WHITE">
+<span class="sig-name descname"><span class="pre">WHITE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'White'</span></em><a class="headerlink" href="#enums.PlayerColor.WHITE" title="Link to this definition">¶</a></dt>
+<dd><p>White.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="enums.PlayerColor.code">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">code</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#enums.PlayerColor.code" title="Link to this definition">¶</a></dt>
+<dd><p>Short string representation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Hivemind</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="board.html">Board</a></li>
+<li class="toctree-l1"><a class="reference internal" href="game.html">Game utilities</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Enums</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="game.html" title="previous chapter">Game utilities</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024, Riccardo Chimisso.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/enums.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

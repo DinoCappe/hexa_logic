@@ -1,9 +1,17 @@
-from typing import TypeGuard
+from typing import TypeGuard, Final
 from enums import Command
 from board import Board
 from game import Move
 
+VERSION: Final[str] = "1.0.0"
+"""
+Engine version.
+"""
+
 def main() -> None:
+  """
+  Engine main loop to handle commands.
+  """
   info()
   board: Board | None = None
   while True:
@@ -36,10 +44,19 @@ def main() -> None:
         error("Invalid command. Try 'help' to see a list of valid commands and how to use them")
 
 def info() -> None:
-  print("id HivemindEngine v0.0.1")
+  """
+  Handles 'info' command.
+  """
+  print(f"id HivemindEngine v{VERSION}")
   print("Mosquito;Ladybug;Pillbug")
 
 def help(arguments: list[str]) -> None:
+  """
+  Handles 'help' command with arguments.
+
+  :param arguments: Command arguments.
+  :type arguments: list[str]
+  """
   if arguments:
     if len(arguments) > 1:
       error(f"Too many arguments for command '{Command.HELP}'")
@@ -106,6 +123,14 @@ def help(arguments: list[str]) -> None:
     print(f"Try '{Command.HELP} <command>' to see help for a particular Command.")
 
 def newgame(arguments: list[str]) -> Board | None:
+  """
+  Handles 'newgame' command with arguments.
+
+  :param arguments: Command arguments.
+  :type arguments: list[str]
+  :return: The newly created Board if successful in creating a new game.
+  :rtype: Board | None
+  """
   board: Board | None = None
   try:
     board = Board(" ".join(arguments))
@@ -115,16 +140,41 @@ def newgame(arguments: list[str]) -> Board | None:
   return board
 
 def validmoves(board: Board | None) -> None:
-  if is_playing(board):
+  """
+  Handles 'validmoves' command.
+
+  :param board: Current playing Board.
+  :type board: Board | None
+  """
+  if is_active(board):
     print(board.valid_moves)
 
 def bestmove(board: Board | None, restriction: str, value: str) -> None:
-  if is_playing(board):
+  """
+  Handles 'bestmove' command with arguments.  
+  Currently WIP.
+
+  :param board: Current playing Board.
+  :type board: Board | None
+  :param restriction: Type of restriction in searching the best move.
+  :type restriction: str
+  :param value: Value of the restriction.
+  :type value: str
+  """
+  if is_active(board):
     # TODO: Check if restriction and value are in the correct format.
     print(board.best_move)
 
 def play(board: Board | None, move: str) -> None:
-  if is_playing(board):
+  """
+  Handles 'play' command with its argument (MoveString).
+
+  :param board: Current playing Board.
+  :type board: Board | None
+  :param move: MoveString.
+  :type move: str
+  """
+  if is_active(board):
     try:
       board.play(move)
       print(board)
@@ -132,7 +182,15 @@ def play(board: Board | None, move: str) -> None:
       error(e)
 
 def undo(board: Board | None, arguments: list[str]) -> None:
-  if is_playing(board):
+  """
+  Handles 'undo' command with arguments.
+
+  :param board: Current playing Board.
+  :type board: Board | None
+  :param arguments: Command arguments.
+  :type arguments: list[str]
+  """
+  if is_active(board):
     if len(arguments) <= 1:
       try:
         if arguments:
@@ -148,14 +206,28 @@ def undo(board: Board | None, arguments: list[str]) -> None:
     else:
       error(f"Too many arguments for command '{Command.UNDO}'")
 
-def is_playing(board: Board | None) -> TypeGuard[Board]:
+def is_active(board: Board | None) -> TypeGuard[Board]:
+  """
+  Checks whether the current playing Board is initialized.
+
+  :param board: Current playing Board.
+  :type board: Board | None
+  :return: Whether the Board is initialized.
+  :rtype: TypeGuard[Board]
+  """
   if not board:
-    error("No game is currently in progress")
+    error("No game is currently active")
     return False
   return True
 
-def error(message: str | Exception) -> None:
-  print(f"err {message}.")
+def error(error: str | Exception) -> None:
+  """
+  Outputs as an error the given message/exception.
+
+  :param message: Message or exception.
+  :type message: str | Exception
+  """
+  print(f"err {error}.")
 
 if __name__ == "__main__":
   main()

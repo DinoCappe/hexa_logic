@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "njpwerner.autodocstring",
+    "visualstudioexptteam.vscodeintellicode",
+    "ms-python.vscode-pylance",
+    "ms-python.python",
+    "ms-python.debugpy"
+  ]
+}

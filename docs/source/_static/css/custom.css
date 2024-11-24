@@ -1,0 +1,30 @@
+* {
+  box-sizing: border-box;
+}
+
+body, html {
+  min-height: 100vh;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+div.document {
+  width: 100%;
+  margin: 0px;
+  padding: 30px;
+  box-sizing: border-box;
+}
+
+div.body {
+  max-width: 100%;
+  padding: 0;
+  padding-left: 30px;
+}
+
+section > dl, div.footer {
+  margin-right: 30px;
+}
