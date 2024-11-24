@@ -37,7 +37,7 @@ class Board():
     self.state: GameState = state
     self.turn: int = turn
     self.moves: list[Move | None] = []
-    self.move_strings: list[str] = moves # TODO: Implement initial moves.
+    self.move_strings: list[str] = []
     self._pos_to_bug: dict[Position, list[Bug]] = {}
     """
     Map for tile positions on the board and bug pieces placed there (pieces can be stacked).
@@ -64,6 +64,7 @@ class Board():
           self._bug_to_pos[Bug(color, BugType(expansion.name))] = None
     self._valid_moves_cache: Set[Move] | None = None
     # TODO: Most likely, a cache for the best move will be needed too.
+    self._make_initial_moves(moves)
 
   def __str__(self) -> str:
     return f"{self.type};{self.state};{self.current_player_color}[{self.current_player_turn}]{';' if len(self.moves) else ''}{';'.join(self.move_strings)}"
@@ -102,11 +103,17 @@ class Board():
     type, state, turn, *moves = values
     return GameType.parse(type), GameState.parse(state), self._parse_turn(turn), moves
 
-  def _make_initial_moves(self, moves: list[str]) -> list[str]:
+  def _make_initial_moves(self, moves: list[str]) -> None:
+    """
+    Make initial moves.
+
+    :param moves: List of MoveStrings.
+    :type moves: list[str]
+    :raises ValueError: If the amount of moves to make is not coherent with the turn number.
+    """
     if self.turn - 1 == len(moves):
       for move in moves:
         self.play(move)
-      return moves
     raise ValueError(f"Expected {self.turn - 1} moves but got {len(moves)}")
 
   def play(self, move_string: str) -> None:
