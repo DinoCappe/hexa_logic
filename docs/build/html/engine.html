@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
-    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=782d985c" />
+    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=9f9c99f7" />
     <script src="_static/documentation_options.js?v=8d563738"></script>
     <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
@@ -36,21 +36,25 @@
             
   <section id="module-engine">
 <span id="engine"></span><h1>Engine<a class="headerlink" href="#module-engine" title="Link to this heading">¶</a></h1>
-<dl class="py data">
-<dt class="sig sig-object py" id="engine.VERSION">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">VERSION</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Final</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'1.0.0'</span></em><a class="headerlink" href="#engine.VERSION" title="Link to this definition">¶</a></dt>
+<dl class="py class">
+<dt class="sig sig-object py" id="engine.Engine">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">Engine</span></span><a class="reference internal" href="_modules/engine.html#Engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="engine.Engine.VERSION">
+<span class="sig-name descname"><span class="pre">VERSION</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Final</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'1.1.0'</span></em><a class="headerlink" href="#engine.Engine.VERSION" title="Link to this definition">¶</a></dt>
 <dd><p>Engine version.</p>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.bestmove">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">bestmove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restriction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#bestmove"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.bestmove" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.bestmove">
+<span class="sig-name descname"><span class="pre">bestmove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restriction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.bestmove"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.bestmove" title="Link to this definition">¶</a></dt>
 <dd><p>Handles ‘bestmove’ command with arguments.  
 Currently WIP.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em> | </em><em>None</em>) – Current playing Board.</p></li>
+<li><p><strong>board</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em>]</em>) – Current playing Board.</p></li>
 <li><p><strong>restriction</strong> (<em>str</em>) – Type of restriction in searching the best move.</p></li>
 <li><p><strong>value</strong> (<em>str</em>) – Value of the restriction.</p></li>
 </ul>
@@ -58,9 +62,9 @@ Currently WIP.</p>
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.error">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Exception</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.error" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.error">
+<span class="sig-name descname"><span class="pre">error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Exception</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.error" title="Link to this definition">¶</a></dt>
 <dd><p>Outputs as an error the given message/exception.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -69,9 +73,9 @@ Currently WIP.</p>
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.help">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">help</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#help"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.help" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.help">
+<span class="sig-name descname"><span class="pre">help</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.help"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.help" title="Link to this definition">¶</a></dt>
 <dd><p>Handles ‘help’ command with arguments.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -80,19 +84,19 @@ Currently WIP.</p>
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.info">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.info" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.info">
+<span class="sig-name descname"><span class="pre">info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.info" title="Link to this definition">¶</a></dt>
 <dd><p>Handles ‘info’ command.</p>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.is_active">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">is_active</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TypeGuard</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/engine.html#is_active"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.is_active" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.is_active">
+<span class="sig-name descname"><span class="pre">is_active</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TypeGuard</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/engine.html#Engine.is_active"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.is_active" title="Link to this definition">¶</a></dt>
 <dd><p>Checks whether the current playing Board is initialized.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em> | </em><em>None</em>) – Current playing Board.</p>
+<dd class="field-odd"><p><strong>board</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em>]</em>) – Current playing Board.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Whether the Board is initialized.</p>
@@ -103,15 +107,9 @@ Currently WIP.</p>
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.main">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.main" title="Link to this definition">¶</a></dt>
-<dd><p>Engine main loop to handle commands.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.newgame">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">newgame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#newgame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.newgame" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.newgame">
+<span class="sig-name descname"><span class="pre">newgame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.newgame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.newgame" title="Link to this definition">¶</a></dt>
 <dd><p>Handles ‘newgame’ command with arguments.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -121,48 +119,56 @@ Currently WIP.</p>
 <dd class="field-even"><p>The newly created Board if successful in creating a new game.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="board.html#board.Board" title="board.Board">Board</a> | None</p>
+<dd class="field-odd"><p>Optional[<a class="reference internal" href="board.html#board.Board" title="board.Board">Board</a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.play">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">play</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">move</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#play"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.play" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.play">
+<span class="sig-name descname"><span class="pre">play</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">move</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.play"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.play" title="Link to this definition">¶</a></dt>
 <dd><p>Handles ‘play’ command with its argument (MoveString).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em> | </em><em>None</em>) – Current playing Board.</p></li>
+<li><p><strong>board</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em>]</em>) – Current playing Board.</p></li>
 <li><p><strong>move</strong> (<em>str</em>) – MoveString.</p></li>
 </ul>
 </dd>
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.undo">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">undo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arguments</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#undo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.undo" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.start" title="Link to this definition">¶</a></dt>
+<dd><p>Engine main loop to handle commands.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.undo">
+<span class="sig-name descname"><span class="pre">undo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.undo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.undo" title="Link to this definition">¶</a></dt>
 <dd><p>Handles ‘undo’ command with arguments.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em> | </em><em>None</em>) – Current playing Board.</p></li>
+<li><p><strong>board</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em>]</em>) – Current playing Board.</p></li>
 <li><p><strong>arguments</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – Command arguments.</p></li>
 </ul>
 </dd>
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="engine.validmoves">
-<span class="sig-prename descclassname"><span class="pre">engine.</span></span><span class="sig-name descname"><span class="pre">validmoves</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#validmoves"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.validmoves" title="Link to this definition">¶</a></dt>
+<dl class="py method">
+<dt class="sig sig-object py" id="engine.Engine.validmoves">
+<span class="sig-name descname"><span class="pre">validmoves</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/engine.html#Engine.validmoves"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#engine.Engine.validmoves" title="Link to this definition">¶</a></dt>
 <dd><p>Handles ‘validmoves’ command.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em> | </em><em>None</em>) – Current playing Board.</p>
+<dd class="field-odd"><p><strong>board</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a><em>]</em>) – Current playing Board.</p>
 </dd>
 </dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -193,10 +199,10 @@ Currently WIP.</p>
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Engine</a></li>
 <li class="toctree-l1"><a class="reference internal" href="board.html">Board</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ai.html">AI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="game.html">Game utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="enums.html">Enums</a></li>
 </ul>

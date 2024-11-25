@@ -8,7 +8,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=782d985c" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=9f9c99f7" />
     <script src="../_static/documentation_options.js?v=8d563738"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
@@ -32,7 +32,7 @@
           <div class="body" role="main">
             
   <h1>Source code for board</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Final</span><span class="p">,</span> <span class="n">Set</span>
+<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Final</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span>
 <span class="kn">from</span> <span class="nn">enums</span> <span class="kn">import</span> <span class="n">GameType</span><span class="p">,</span> <span class="n">GameState</span><span class="p">,</span> <span class="n">PlayerColor</span><span class="p">,</span> <span class="n">BugType</span><span class="p">,</span> <span class="n">Direction</span>
 <span class="kn">from</span> <span class="nn">game</span> <span class="kn">import</span> <span class="n">Position</span><span class="p">,</span> <span class="n">Bug</span><span class="p">,</span> <span class="n">Move</span>
 <span class="kn">import</span> <span class="nn">re</span>
@@ -72,13 +72,14 @@
     <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">GameType</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">:</span> <span class="n">GameState</span> <span class="o">=</span> <span class="n">state</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">turn</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">turn</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">moves</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Move</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">move_strings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">moves</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Move</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_valid_moves_cache</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">Move</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_pos_to_bug</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Position</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Bug</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Map for tile positions on the board and bug pieces placed there (pieces can be stacked).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Bug</span><span class="p">,</span> <span class="n">Position</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Bug</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Position</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Map for bug pieces and their current position.  </span>
 <span class="sd">    Position is None if the piece has not been played yet.  </span>
@@ -98,8 +99,6 @@
           <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">[</span><span class="n">Bug</span><span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">BugType</span><span class="o">.</span><span class="n">SOLDIER_ANT</span><span class="p">,</span> <span class="mi">3</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
           <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">[</span><span class="n">Bug</span><span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">BugType</span><span class="p">(</span><span class="n">expansion</span><span class="o">.</span><span class="n">name</span><span class="p">))]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_valid_moves_cache</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Move</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="c1"># TODO: Most likely, a cache for the best move will be needed too.</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_play_initial_moves</span><span class="p">(</span><span class="n">moves</span><span class="p">)</span>
 
   <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -139,17 +138,7 @@
 
 <span class="sd">    :rtype: str</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="s2">&quot;;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_stringify_move</span><span class="p">(</span><span class="n">move</span><span class="p">)</span> <span class="k">for</span> <span class="n">move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_valid_moves</span><span class="p">()])</span> <span class="ow">or</span> <span class="n">Move</span><span class="o">.</span><span class="n">PASS</span>
-
-  <span class="nd">@property</span>
-  <span class="k">def</span> <span class="nf">best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Current best move as a MoveString.</span>
-
-<span class="sd">    :rtype: str</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">move</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_best_move</span><span class="p">()</span>
-    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stringify_move</span><span class="p">(</span><span class="n">move</span><span class="p">)</span> <span class="k">if</span> <span class="n">move</span> <span class="k">else</span> <span class="n">Move</span><span class="o">.</span><span class="n">PASS</span>
+    <span class="k">return</span> <span class="s2">&quot;;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">stringify_move</span><span class="p">(</span><span class="n">move</span><span class="p">)</span> <span class="k">for</span> <span class="n">move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_valid_moves</span><span class="p">()])</span> <span class="ow">or</span> <span class="n">Move</span><span class="o">.</span><span class="n">PASS</span>
 
 <div class="viewcode-block" id="Board.play">
 <a class="viewcode-back" href="../board.html#board.Board.play">[docs]</a>
@@ -220,6 +209,33 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough moves to undo: asked for </span><span class="si">{</span><span class="n">amount</span><span class="si">}</span><span class="s2"> but only </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">moves</span><span class="p">)</span><span class="si">}</span><span class="s2"> were made&quot;</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
       <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The game has yet to begin&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Board.stringify_move">
+<a class="viewcode-back" href="../board.html#board.Board.stringify_move">[docs]</a>
+  <span class="k">def</span> <span class="nf">stringify_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">move</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Move</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a MoveString from the given move.</span>
+
+<span class="sd">    :param move: Move.</span>
+<span class="sd">    :type move: Optional[Move]</span>
+<span class="sd">    :return: MoveString.</span>
+<span class="sd">    :rtype: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">move</span><span class="p">:</span>
+      <span class="n">moved</span><span class="p">:</span> <span class="n">Bug</span> <span class="o">=</span> <span class="n">move</span><span class="o">.</span><span class="n">bug</span>
+      <span class="n">relative</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bug</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+      <span class="n">direction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Direction</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+      <span class="k">if</span> <span class="p">(</span><span class="n">dest_bugs</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">move</span><span class="o">.</span><span class="n">destination</span><span class="p">)):</span>
+        <span class="n">relative</span> <span class="o">=</span> <span class="n">dest_bugs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="nb">dir</span> <span class="ow">in</span> <span class="n">Direction</span><span class="o">.</span><span class="n">flat</span><span class="p">():</span>
+          <span class="k">if</span> <span class="p">(</span><span class="n">neighbor_bugs</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">move</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="nb">dir</span><span class="p">)))</span> <span class="ow">and</span> <span class="p">(</span><span class="n">neighbor_bug</span> <span class="o">:=</span> <span class="n">neighbor_bugs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="n">moved</span><span class="p">:</span>
+            <span class="n">relative</span> <span class="o">=</span> <span class="n">neighbor_bug</span>
+            <span class="n">direction</span> <span class="o">=</span> <span class="nb">dir</span><span class="o">.</span><span class="n">opposite</span>
+            <span class="k">break</span>
+      <span class="k">return</span> <span class="n">Move</span><span class="o">.</span><span class="n">stringify</span><span class="p">(</span><span class="n">moved</span><span class="p">,</span> <span class="n">relative</span><span class="p">,</span> <span class="n">direction</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Move</span><span class="o">.</span><span class="n">PASS</span></div>
 
 
   <span class="k">def</span> <span class="nf">_parse_turn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">turn</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -391,7 +407,7 @@
         <span class="n">stack</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
           <span class="p">(</span><span class="n">neighbor</span><span class="p">,</span> <span class="n">current_depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
           <span class="k">for</span> <span class="n">direction</span> <span class="ow">in</span> <span class="n">Direction</span><span class="o">.</span><span class="n">flat</span><span class="p">()</span>
-          <span class="k">if</span> <span class="p">(</span><span class="n">neighbor</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">direction</span><span class="p">))</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">visited</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">neighbor</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">direction</span><span class="o">.</span><span class="n">right_of</span><span class="p">)))</span> <span class="o">!=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">direction</span><span class="o">.</span><span class="n">left_of</span><span class="p">)))</span>
+          <span class="k">if</span> <span class="p">(</span><span class="n">neighbor</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">direction</span><span class="p">))</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">visited</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">neighbor</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">((</span><span class="n">right</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">direction</span><span class="o">.</span><span class="n">right_of</span><span class="p">))))</span> <span class="o">!=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">((</span><span class="n">left</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">direction</span><span class="o">.</span><span class="n">left_of</span><span class="p">))))</span> <span class="ow">and</span> <span class="n">right</span> <span class="o">!=</span> <span class="n">origin</span> <span class="o">!=</span> <span class="n">left</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="p">{</span><span class="n">Move</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">destination</span><span class="p">)</span> <span class="k">for</span> <span class="n">destination</span> <span class="ow">in</span> <span class="n">destinations</span> <span class="k">if</span> <span class="n">destination</span> <span class="o">!=</span> <span class="n">origin</span><span class="p">}</span>
 
@@ -403,12 +419,14 @@
 <span class="sd">    :type bug: Bug</span>
 <span class="sd">    :param origin: Initial position of the bug piece.</span>
 <span class="sd">    :type origin: Position</span>
+<span class="sd">    :param virtual: Whether the bug is not at origin, and is just passing by as part of its full move, defaults to False.</span>
+<span class="sd">    :type virtual: bool, optional</span>
 <span class="sd">    :return: Set of valid Beetle moves.</span>
 <span class="sd">    :rtype: Set[Move]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">moves</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Move</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">direction</span> <span class="ow">in</span> <span class="n">Direction</span><span class="o">.</span><span class="n">flat</span><span class="p">():</span>
-      <span class="c1"># Don&#39;t consider the Beetle in the height, unless it&#39;s a virtual move (the bug is not actually in origin, but moving at the top of origin is part of its full move due to the Pillbug special move).</span>
+      <span class="c1"># Don&#39;t consider the Beetle in the height, unless it&#39;s a virtual move (the bug is not actually in origin, but moving at the top of origin is part of its full move).</span>
       <span class="n">height</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">virtual</span>
       <span class="n">destination</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span> <span class="n">direction</span><span class="p">)</span>
       <span class="n">dest_height</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">destination</span><span class="p">))</span>
@@ -498,10 +516,10 @@
 <span class="sd">    :rtype: Set[Move]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">{</span>
-      <span class="n">Move</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
-      <span class="k">for</span> <span class="n">first_move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_beetle_moves</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">first_move</span><span class="o">.</span><span class="n">destination</span><span class="p">))</span>
-      <span class="k">for</span> <span class="n">second_move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_beetle_moves</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">first_move</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">second_move</span><span class="o">.</span><span class="n">destination</span><span class="p">))</span>
-      <span class="k">for</span> <span class="n">final_move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_beetle_moves</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">second_move</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">final_move</span><span class="o">.</span><span class="n">destination</span><span class="p">))</span> <span class="ow">and</span> <span class="n">final_move</span><span class="o">.</span><span class="n">destination</span> <span class="o">!=</span> <span class="n">origin</span>
+      <span class="n">Move</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">final_move</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
+      <span class="k">for</span> <span class="n">first_move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_beetle_moves</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">first_move</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
+      <span class="k">for</span> <span class="n">second_move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_beetle_moves</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">first_move</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">second_move</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span> <span class="ow">and</span> <span class="n">second_move</span><span class="o">.</span><span class="n">destination</span> <span class="o">!=</span> <span class="n">origin</span>
+      <span class="k">for</span> <span class="n">final_move</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_beetle_moves</span><span class="p">(</span><span class="n">bug</span><span class="p">,</span> <span class="n">second_move</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">final_move</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span> <span class="ow">and</span> <span class="n">final_move</span><span class="o">.</span><span class="n">destination</span> <span class="o">!=</span> <span class="n">origin</span>
     <span class="p">}</span>
 
   <span class="k">def</span> <span class="nf">_get_pillbug_special_moves</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="n">Position</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">Move</span><span class="p">]:</span>
@@ -570,17 +588,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">moves</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">moves</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">bug</span> <span class="o">!=</span> <span class="n">bug</span>
 
-  <span class="k">def</span> <span class="nf">_get_best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Move</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Get the best move to play.  </span>
-<span class="sd">    Currently, simply returns the first valid move.</span>
-
-<span class="sd">    :return: The best possible move to play.</span>
-<span class="sd">    :rtype: Move</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_valid_moves</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_valid_moves</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
-
-  <span class="k">def</span> <span class="nf">_parse_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">move_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Move</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">_parse_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">move_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Move</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Parses a MoveString.</span>
 
@@ -592,7 +600,7 @@
 <span class="sd">    :raises ValueError: If more than one direction was specified.</span>
 <span class="sd">    :raises ValueError: If move_string is not a valid MoveString.</span>
 <span class="sd">    :return: Move.</span>
-<span class="sd">    :rtype: Move | None</span>
+<span class="sd">    :rtype: Optional[Move]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">move_string</span> <span class="o">==</span> <span class="n">Move</span><span class="o">.</span><span class="n">PASS</span><span class="p">:</span>
       <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_valid_moves</span><span class="p">():</span>
@@ -610,30 +618,6 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">bug_string_2</span><span class="si">}</span><span class="s2">&#39; has not been played yet&quot;</span><span class="p">)</span>
       <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only one direction at a time can be specified&quot;</span><span class="p">)</span>
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">move_string</span><span class="si">}</span><span class="s2">&#39; is not a valid MoveString&quot;</span><span class="p">)</span>
-
-  <span class="k">def</span> <span class="nf">_stringify_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">move</span><span class="p">:</span> <span class="n">Move</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Returns a MoveString from the given move.</span>
-
-<span class="sd">    :param move: Move.</span>
-<span class="sd">    :type move: Move | None</span>
-<span class="sd">    :return: MoveString.</span>
-<span class="sd">    :rtype: str</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">move</span><span class="p">:</span>
-      <span class="n">moved</span><span class="p">:</span> <span class="n">Bug</span> <span class="o">=</span> <span class="n">move</span><span class="o">.</span><span class="n">bug</span>
-      <span class="n">relative</span><span class="p">:</span> <span class="n">Bug</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-      <span class="n">direction</span><span class="p">:</span> <span class="n">Direction</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-      <span class="k">if</span> <span class="p">(</span><span class="n">dest_bugs</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="n">move</span><span class="o">.</span><span class="n">destination</span><span class="p">)):</span>
-        <span class="n">relative</span> <span class="o">=</span> <span class="n">dest_bugs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-      <span class="k">else</span><span class="p">:</span>
-        <span class="k">for</span> <span class="nb">dir</span> <span class="ow">in</span> <span class="n">Direction</span><span class="o">.</span><span class="n">flat</span><span class="p">():</span>
-          <span class="k">if</span> <span class="p">(</span><span class="n">neighbor_bugs</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">move</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="nb">dir</span><span class="p">))):</span>
-            <span class="n">relative</span> <span class="o">=</span> <span class="n">neighbor_bugs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">direction</span> <span class="o">=</span> <span class="nb">dir</span><span class="o">.</span><span class="n">opposite</span>
-            <span class="k">break</span>
-      <span class="k">return</span> <span class="n">Move</span><span class="o">.</span><span class="n">stringify</span><span class="p">(</span><span class="n">moved</span><span class="p">,</span> <span class="n">relative</span><span class="p">,</span> <span class="n">direction</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Move</span><span class="o">.</span><span class="n">PASS</span>
 
   <span class="k">def</span> <span class="nf">_is_bug_on_top</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bug</span><span class="p">:</span> <span class="n">Bug</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -657,14 +641,14 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pos_to_bug</span><span class="p">[</span><span class="n">position</span><span class="p">]</span> <span class="k">if</span> <span class="n">position</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pos_to_bug</span> <span class="k">else</span> <span class="p">[]</span>
 
-  <span class="k">def</span> <span class="nf">_pos_from_bug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bug</span><span class="p">:</span> <span class="n">Bug</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Position</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">_pos_from_bug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bug</span><span class="p">:</span> <span class="n">Bug</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Position</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Retrieves the position of the given bug piece.</span>
 
 <span class="sd">    :param bug: Bug piece to get the position of.</span>
 <span class="sd">    :type bug: Bug</span>
 <span class="sd">    :return: Position of the given bug piece.</span>
-<span class="sd">    :rtype: Position | None</span>
+<span class="sd">    :rtype: Optional[Position]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">[</span><span class="n">bug</span><span class="p">]</span> <span class="k">if</span> <span class="n">bug</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span> <span class="k">else</span> <span class="kc">None</span>
 
@@ -708,10 +692,10 @@
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../engine.html">Engine</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../board.html">Board</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ai.html">AI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../game.html">Game utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../enums.html">Enums</a></li>
 </ul>

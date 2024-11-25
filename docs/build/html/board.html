@@ -9,13 +9,13 @@
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
-    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=782d985c" />
+    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=9f9c99f7" />
     <script src="_static/documentation_options.js?v=8d563738"></script>
     <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Game utilities" href="game.html" />
+    <link rel="next" title="AI" href="ai.html" />
     <link rel="prev" title="Engine" href="engine.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -51,17 +51,6 @@
 <dt class="sig sig-object py" id="board.Board.ORIGIN">
 <span class="sig-name descname"><span class="pre">ORIGIN</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Final</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="game.html#game.Position" title="game.Position"><span class="pre">Position</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;game.Position</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#board.Board.ORIGIN" title="Link to this definition">¶</a></dt>
 <dd><p>Position of the first piece played.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="board.Board.best_move">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">best_move</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#board.Board.best_move" title="Link to this definition">¶</a></dt>
-<dd><p>Current best move as a MoveString.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>str</p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py property">
@@ -107,6 +96,23 @@
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>ValueError</strong> – If the game is over.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="board.Board.stringify_move">
+<span class="sig-name descname"><span class="pre">stringify_move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">move</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="game.html#game.Move" title="game.Move"><span class="pre">Move</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/board.html#Board.stringify_move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.Board.stringify_move" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a MoveString from the given move.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>move</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="game.html#game.Move" title="game.Move"><em>Move</em></a><em>]</em>) – Move.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>MoveString.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
 </dd>
 </dl>
 </dd></dl>
@@ -169,10 +175,10 @@
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="engine.html">Engine</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Board</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ai.html">AI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="game.html">Game utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="enums.html">Enums</a></li>
 </ul>
@@ -182,7 +188,7 @@
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="engine.html" title="previous chapter">Engine</a></li>
-      <li>Next: <a href="game.html" title="next chapter">Game utilities</a></li>
+      <li>Next: <a href="ai.html" title="next chapter">AI</a></li>
   </ul></li>
 </ul>
 </div>

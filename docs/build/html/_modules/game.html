@@ -8,7 +8,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=782d985c" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=9f9c99f7" />
     <script src="../_static/documentation_options.js?v=8d563738"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
@@ -32,7 +32,7 @@
           <div class="body" role="main">
             
   <h1>Source code for game</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Final</span>
+<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Final</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">from</span> <span class="nn">enums</span> <span class="kn">import</span> <span class="n">PlayerColor</span><span class="p">,</span> <span class="n">BugType</span><span class="p">,</span> <span class="n">Direction</span>
 <span class="kn">import</span> <span class="nn">re</span>
 
@@ -129,25 +129,25 @@
 <div class="viewcode-block" id="Move.stringify">
 <a class="viewcode-back" href="../game.html#game.Move.stringify">[docs]</a>
   <span class="nd">@classmethod</span>
-  <span class="k">def</span> <span class="nf">stringify</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">moved</span><span class="p">:</span> <span class="n">Bug</span><span class="p">,</span> <span class="n">relative</span><span class="p">:</span> <span class="n">Bug</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">direction</span><span class="p">:</span> <span class="n">Direction</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">stringify</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">moved</span><span class="p">:</span> <span class="n">Bug</span><span class="p">,</span> <span class="n">relative</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bug</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">direction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Direction</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Converts the data for a move to the corresponding MoveString.</span>
 
 <span class="sd">    :param moved: Bug piece moved.</span>
 <span class="sd">    :type moved: Bug</span>
 <span class="sd">    :param relative: Bug piece relative to which the other bug piece is moved, defaults to None.</span>
-<span class="sd">    :type relative: Bug | None, optional</span>
+<span class="sd">    :type relative: Optional[Bug], optional</span>
 <span class="sd">    :param direction: Direction of the destination tile with respect to the relative bug piece, defaults to None.</span>
-<span class="sd">    :type direction: Direction | None, optional</span>
+<span class="sd">    :type direction: Optional[Direction], optional</span>
 <span class="sd">    :return: MoveString.</span>
 <span class="sd">    :rtype: str</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">moved</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">direction</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">direction</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">direction</span><span class="o">.</span><span class="n">is_left</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="si">}{</span><span class="n">relative</span><span class="si">}{</span><span class="n">direction</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">direction</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">direction</span><span class="o">.</span><span class="n">is_right</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">relative</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">moved</span><span class="si">}</span><span class="s2">&quot;</span></div>
 
 
-  <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bug</span><span class="p">:</span> <span class="n">Bug</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="n">Position</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">destination</span><span class="p">:</span> <span class="n">Position</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+  <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bug</span><span class="p">:</span> <span class="n">Bug</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Position</span><span class="p">],</span> <span class="n">destination</span><span class="p">:</span> <span class="n">Position</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">bug</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Bug</span><span class="p">]</span> <span class="o">=</span> <span class="n">bug</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Position</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">origin</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Position</span><span class="p">]]</span> <span class="o">=</span> <span class="n">origin</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">destination</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Position</span><span class="p">]</span> <span class="o">=</span> <span class="n">destination</span>
 
   <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -186,7 +186,6 @@
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../engine.html">Engine</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../board.html">Board</a></li>

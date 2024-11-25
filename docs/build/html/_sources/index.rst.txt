@@ -60,5 +60,6 @@ Contents
 
    engine
    board
+   ai
    game
    enums

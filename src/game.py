@@ -1,4 +1,4 @@
-from typing import Final
+from typing import Final, Optional
 from enums import PlayerColor, BugType, Direction
 import re
 
@@ -82,24 +82,24 @@ class Move():
   """
 
   @classmethod
-  def stringify(cls, moved: Bug, relative: Bug | None = None, direction: Direction | None = None) -> str:
+  def stringify(cls, moved: Bug, relative: Optional[Bug] = None, direction: Optional[Direction] = None) -> str:
     """
     Converts the data for a move to the corresponding MoveString.
 
     :param moved: Bug piece moved.
     :type moved: Bug
     :param relative: Bug piece relative to which the other bug piece is moved, defaults to None.
-    :type relative: Bug | None, optional
+    :type relative: Optional[Bug], optional
     :param direction: Direction of the destination tile with respect to the relative bug piece, defaults to None.
-    :type direction: Direction | None, optional
+    :type direction: Optional[Direction], optional
     :return: MoveString.
     :rtype: str
     """
     return f"{moved} {direction if direction and direction.is_left else ""}{relative}{direction if direction and direction.is_right else ""}" if relative else f"{moved}"
 
-  def __init__(self, bug: Bug, origin: Position | None, destination: Position) -> None:
+  def __init__(self, bug: Bug, origin: Optional[Position], destination: Position) -> None:
     self.bug: Final[Bug] = bug
-    self.origin: Final[Position | None] = origin
+    self.origin: Final[Optional[Position]] = origin
     self.destination: Final[Position] = destination
 
   def __str__(self) -> str:

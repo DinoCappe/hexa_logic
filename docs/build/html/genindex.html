@@ -62,6 +62,17 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="enums.html#enums.Direction.ABOVE">ABOVE (enums.Direction attribute)</a>
 </li>
+      <li>
+    ai
+
+      <ul>
+        <li><a href="ai.html#module-ai">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="ai.html#ai.AlphaBetaPruner">AlphaBetaPruner (class in ai)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -74,16 +85,14 @@
 </li>
       <li><a href="enums.html#enums.Direction.BELOW">BELOW (enums.Direction attribute)</a>
 </li>
-      <li><a href="board.html#board.Board.best_move">best_move (board.Board property)</a>
-</li>
       <li><a href="enums.html#enums.Command.BESTMOVE">BESTMOVE (enums.Command attribute)</a>
 </li>
-      <li><a href="engine.html#engine.bestmove">bestmove() (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.bestmove">bestmove() (engine.Engine method)</a>
+</li>
+      <li><a href="enums.html#enums.PlayerColor.BLACK">BLACK (enums.PlayerColor attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="enums.html#enums.PlayerColor.BLACK">BLACK (enums.PlayerColor attribute)</a>
-</li>
       <li><a href="enums.html#enums.GameState.BLACK_WINS">BLACK_WINS (enums.GameState attribute)</a>
 </li>
       <li>
@@ -95,6 +104,8 @@
       </ul></li>
       <li><a href="board.html#board.Board">Board (class in board)</a>
 </li>
+      <li><a href="ai.html#ai.Brain">Brain (class in ai)</a>
+</li>
       <li><a href="game.html#game.Bug">Bug (class in game)</a>
 </li>
       <li><a href="enums.html#enums.BugType">BugType (class in enums)</a>
@@ -105,14 +116,22 @@
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="ai.html#ai.AlphaBetaPruner.calculate_best_move">calculate_best_move() (ai.AlphaBetaPruner method)</a>
+
+      <ul>
+        <li><a href="ai.html#ai.Brain.calculate_best_move">(ai.Brain method)</a>
+</li>
+        <li><a href="ai.html#ai.Random.calculate_best_move">(ai.Random method)</a>
+</li>
+      </ul></li>
       <li><a href="enums.html#enums.PlayerColor.code">code (enums.PlayerColor property)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="game.html#game.Bug.COLORS">COLORS (game.Bug attribute)</a>
 </li>
       <li><a href="enums.html#enums.Command">Command (class in enums)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="board.html#board.Board.current_player_color">current_player_color (board.Board property)</a>
 </li>
       <li><a href="board.html#board.Board.current_player_queen_in_play">current_player_queen_in_play (board.Board property)</a>
@@ -143,6 +162,8 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="ai.html#ai.Brain.empty_cache">empty_cache() (ai.Brain method)</a>
+</li>
       <li>
     engine
 
@@ -150,6 +171,10 @@
         <li><a href="engine.html#module-engine">module</a>
 </li>
       </ul></li>
+      <li><a href="engine.html#engine.Engine">Engine (class in engine)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     enums
 
@@ -157,9 +182,7 @@
         <li><a href="enums.html#module-enums">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="engine.html#engine.error">error() (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.error">error() (engine.Engine method)</a>
 </li>
       <li><a href="enums.html#enums.Command.EXIT">EXIT (enums.Command attribute)</a>
 </li>
@@ -208,7 +231,7 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="engine.html#engine.help">help() (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.help">help() (engine.Engine method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -220,11 +243,11 @@
 </li>
       <li><a href="enums.html#enums.Command.INFO">INFO (enums.Command attribute)</a>
 </li>
-      <li><a href="engine.html#engine.info">info() (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.info">info() (engine.Engine method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="engine.html#engine.is_active">is_active() (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.is_active">is_active() (engine.Engine method)</a>
 </li>
       <li><a href="enums.html#enums.Direction.is_left">is_left (enums.Direction property)</a>
 </li>
@@ -254,12 +277,12 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="enums.html#enums.GameType.M">M (enums.GameType attribute)</a>
 </li>
-      <li><a href="engine.html#engine.main">main() (in module engine)</a>
-</li>
       <li>
     module
 
       <ul>
+        <li><a href="ai.html#module-ai">ai</a>
+</li>
         <li><a href="board.html#module-board">board</a>
 </li>
         <li><a href="engine.html#module-engine">engine</a>
@@ -287,7 +310,7 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="engine.html#engine.newgame">newgame() (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.newgame">newgame() (engine.Engine method)</a>
 </li>
       <li><a href="enums.html#enums.GameState.NOT_STARTED">NOT_STARTED (enums.GameState attribute)</a>
 </li>
@@ -336,7 +359,7 @@
       <li><a href="board.html#board.Board.play">play() (board.Board method)</a>
 
       <ul>
-        <li><a href="engine.html#engine.play">(in module engine)</a>
+        <li><a href="engine.html#engine.Engine.play">(engine.Engine method)</a>
 </li>
       </ul></li>
       <li><a href="enums.html#enums.PlayerColor">PlayerColor (class in enums)</a>
@@ -357,6 +380,8 @@
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="ai.html#ai.Random">Random (class in ai)</a>
+</li>
       <li><a href="game.html#game.Bug.REGEX">REGEX (game.Bug attribute)</a>
 
       <ul>
@@ -377,11 +402,15 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="enums.html#enums.BugType.SOLDIER_ANT">SOLDIER_ANT (enums.BugType attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="enums.html#enums.BugType.SPIDER">SPIDER (enums.BugType attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="engine.html#engine.Engine.start">start() (engine.Engine method)</a>
+</li>
       <li><a href="game.html#game.Move.stringify">stringify() (game.Move class method)</a>
+</li>
+      <li><a href="board.html#board.Board.stringify_move">stringify_move() (board.Board method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -394,7 +423,7 @@
       <li><a href="board.html#board.Board.undo">undo() (board.Board method)</a>
 
       <ul>
-        <li><a href="engine.html#engine.undo">(in module engine)</a>
+        <li><a href="engine.html#engine.Engine.undo">(engine.Engine method)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -415,9 +444,9 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="engine.html#engine.validmoves">validmoves() (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.validmoves">validmoves() (engine.Engine method)</a>
 </li>
-      <li><a href="engine.html#engine.VERSION">VERSION (in module engine)</a>
+      <li><a href="engine.html#engine.Engine.VERSION">VERSION (engine.Engine attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -464,6 +493,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="engine.html">Engine</a></li>
 <li class="toctree-l1"><a class="reference internal" href="board.html">Board</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ai.html">AI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="game.html">Game utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="enums.html">Enums</a></li>
 </ul>

@@ -1,4 +1,4 @@
-from typing import Final, Set
+from typing import Final, Optional, Set
 from enums import GameType, GameState, PlayerColor, BugType, Direction
 from game import Position, Bug, Move
 import re
@@ -36,13 +36,14 @@ class Board():
     self.type: Final[GameType] = type
     self.state: GameState = state
     self.turn: int = turn
-    self.moves: list[Move | None] = []
     self.move_strings: list[str] = []
+    self.moves: list[Optional[Move]] = []
+    self._valid_moves_cache: Optional[Set[Move]] = None
     self._pos_to_bug: dict[Position, list[Bug]] = {}
     """
     Map for tile positions on the board and bug pieces placed there (pieces can be stacked).
     """
-    self._bug_to_pos: dict[Bug, Position | None] = {}
+    self._bug_to_pos: dict[Bug, Optional[Position]] = {}
     """
     Map for bug pieces and their current position.  
     Position is None if the piece has not been played yet.  
@@ -62,8 +63,6 @@ class Board():
           self._bug_to_pos[Bug(color, BugType.SOLDIER_ANT, 3)] = None
         else:
           self._bug_to_pos[Bug(color, BugType(expansion.name))] = None
-    self._valid_moves_cache: Set[Move] | None = None
-    # TODO: Most likely, a cache for the best move will be needed too.
     self._play_initial_moves(moves)
 
   def __str__(self) -> str:
@@ -103,17 +102,7 @@ class Board():
 
     :rtype: str
     """
-    return ";".join([self._stringify_move(move) for move in self._get_valid_moves()]) or Move.PASS
-
-  @property
-  def best_move(self) -> str:
-    """
-    Current best move as a MoveString.
-
-    :rtype: str
-    """
-    move = self._get_best_move()
-    return self._stringify_move(move) if move else Move.PASS
+    return ";".join([self.stringify_move(move) for move in self._get_valid_moves()]) or Move.PASS
 
   def play(self, move_string: str) -> None:
     """
@@ -179,6 +168,30 @@ class Board():
         raise ValueError(f"Not enough moves to undo: asked for {amount} but only {len(self.moves)} were made")
     else:
       raise ValueError(f"The game has yet to begin")
+
+  def stringify_move(self, move: Optional[Move]) -> str:
+    """
+    Returns a MoveString from the given move.
+
+    :param move: Move.
+    :type move: Optional[Move]
+    :return: MoveString.
+    :rtype: str
+    """
+    if move:
+      moved: Bug = move.bug
+      relative: Optional[Bug] = None
+      direction: Optional[Direction] = None
+      if (dest_bugs := self._bugs_from_pos(move.destination)):
+        relative = dest_bugs[-1]
+      else:
+        for dir in Direction.flat():
+          if (neighbor_bugs := self._bugs_from_pos(self._get_neighbor(move.destination, dir))) and (neighbor_bug := neighbor_bugs[0]) != moved:
+            relative = neighbor_bug
+            direction = dir.opposite
+            break
+      return Move.stringify(moved, relative, direction)
+    return Move.PASS
 
   def _parse_turn(self, turn: str) -> int:
     """
@@ -349,7 +362,7 @@ class Board():
         stack.update(
           (neighbor, current_depth + 1)
           for direction in Direction.flat()
-          if (neighbor := self._get_neighbor(current, direction)) not in visited and not self._bugs_from_pos(neighbor) and bool(self._bugs_from_pos(self._get_neighbor(current, direction.right_of))) != bool(self._bugs_from_pos(self._get_neighbor(current, direction.left_of)))
+          if (neighbor := self._get_neighbor(current, direction)) not in visited and not self._bugs_from_pos(neighbor) and bool(self._bugs_from_pos((right := self._get_neighbor(current, direction.right_of)))) != bool(self._bugs_from_pos((left := self._get_neighbor(current, direction.left_of)))) and right != origin != left
         )
     return {Move(bug, origin, destination) for destination in destinations if destination != origin}
 
@@ -361,12 +374,14 @@ class Board():
     :type bug: Bug
     :param origin: Initial position of the bug piece.
     :type origin: Position
+    :param virtual: Whether the bug is not at origin, and is just passing by as part of its full move, defaults to False.
+    :type virtual: bool, optional
     :return: Set of valid Beetle moves.
     :rtype: Set[Move]
     """
     moves: Set[Move] = set()
     for direction in Direction.flat():
-      # Don't consider the Beetle in the height, unless it's a virtual move (the bug is not actually in origin, but moving at the top of origin is part of its full move due to the Pillbug special move).
+      # Don't consider the Beetle in the height, unless it's a virtual move (the bug is not actually in origin, but moving at the top of origin is part of its full move).
       height = len(self._bugs_from_pos(origin)) - 1 + virtual
       destination = self._get_neighbor(origin, direction)
       dest_height = len(self._bugs_from_pos(destination))
@@ -456,10 +471,10 @@ class Board():
     :rtype: Set[Move]
     """
     return {
-      Move(bug, origin, origin)
-      for first_move in self._get_beetle_moves(bug, origin) if len(self._bugs_from_pos(first_move.destination))
-      for second_move in self._get_beetle_moves(bug, first_move.destination) if len(self._bugs_from_pos(second_move.destination))
-      for final_move in self._get_beetle_moves(bug, second_move.destination) if len(self._bugs_from_pos(final_move.destination)) and final_move.destination != origin
+      Move(bug, origin, final_move.destination)
+      for first_move in self._get_beetle_moves(bug, origin, True) if self._bugs_from_pos(first_move.destination)
+      for second_move in self._get_beetle_moves(bug, first_move.destination, True) if self._bugs_from_pos(second_move.destination) and second_move.destination != origin
+      for final_move in self._get_beetle_moves(bug, second_move.destination, True) if not self._bugs_from_pos(final_move.destination) and final_move.destination != origin
     }
 
   def _get_pillbug_special_moves(self, origin: Position) -> Set[Move]:
@@ -528,17 +543,7 @@ class Board():
     """
     return not self.moves[-1] or self.moves[-1].bug != bug
 
-  def _get_best_move(self) -> Move | None:
-    """
-    Get the best move to play.  
-    Currently, simply returns the first valid move.
-
-    :return: The best possible move to play.
-    :rtype: Move
-    """
-    return list(self._get_valid_moves())[0] if self._get_valid_moves() else None
-
-  def _parse_move(self, move_string: str) -> Move | None:
+  def _parse_move(self, move_string: str) -> Optional[Move]:
     """
     Parses a MoveString.
 
@@ -550,7 +555,7 @@ class Board():
     :raises ValueError: If more than one direction was specified.
     :raises ValueError: If move_string is not a valid MoveString.
     :return: Move.
-    :rtype: Move | None
+    :rtype: Optional[Move]
     """
     if move_string == Move.PASS:
       if not self._get_valid_moves():
@@ -568,30 +573,6 @@ class Board():
         raise ValueError(f"'{bug_string_2}' has not been played yet")
       raise ValueError(f"Only one direction at a time can be specified")
     raise ValueError(f"'{move_string}' is not a valid MoveString")
-
-  def _stringify_move(self, move: Move | None) -> str:
-    """
-    Returns a MoveString from the given move.
-
-    :param move: Move.
-    :type move: Move | None
-    :return: MoveString.
-    :rtype: str
-    """
-    if move:
-      moved: Bug = move.bug
-      relative: Bug | None = None
-      direction: Direction | None = None
-      if (dest_bugs := self._bugs_from_pos(move.destination)):
-        relative = dest_bugs[-1]
-      else:
-        for dir in Direction.flat():
-          if (neighbor_bugs := self._bugs_from_pos(self._get_neighbor(move.destination, dir))):
-            relative = neighbor_bugs[0]
-            direction = dir.opposite
-            break
-      return Move.stringify(moved, relative, direction)
-    return Move.PASS
 
   def _is_bug_on_top(self, bug: Bug) -> bool:
     """
@@ -615,14 +596,14 @@ class Board():
     """
     return self._pos_to_bug[position] if position in self._pos_to_bug else []
 
-  def _pos_from_bug(self, bug: Bug) -> Position | None:
+  def _pos_from_bug(self, bug: Bug) -> Optional[Position]:
     """
     Retrieves the position of the given bug piece.
 
     :param bug: Bug piece to get the position of.
     :type bug: Bug
     :return: Position of the given bug piece.
-    :rtype: Position | None
+    :rtype: Optional[Position]
     """
     return self._bug_to_pos[bug] if bug in self._bug_to_pos else None
 
