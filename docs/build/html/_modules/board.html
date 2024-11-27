@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>board &#8212; Hivemind 1.0.0 documentation</title>
+    <title>board &#8212; Hivemind 1.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=9f9c99f7" />
-    <script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/documentation_options.js?v=6efca38a"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -142,7 +142,7 @@
 
 <div class="viewcode-block" id="Board.play">
 <a class="viewcode-back" href="../board.html#board.Board.play">[docs]</a>
-  <span class="k">def</span> <span class="nf">play</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">move_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">play</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">move_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Plays the given move.</span>
 
@@ -166,14 +166,15 @@
           <span class="bp">self</span><span class="o">.</span><span class="n">_pos_to_bug</span><span class="p">[</span><span class="n">move</span><span class="o">.</span><span class="n">destination</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">move</span><span class="o">.</span><span class="n">bug</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
           <span class="bp">self</span><span class="o">.</span><span class="n">_pos_to_bug</span><span class="p">[</span><span class="n">move</span><span class="o">.</span><span class="n">destination</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">move</span><span class="o">.</span><span class="n">bug</span><span class="p">]</span>
-        <span class="n">black_queen_surrounded</span> <span class="o">=</span> <span class="p">(</span><span class="n">queen_pos</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">[</span><span class="n">Bug</span><span class="p">(</span><span class="n">PlayerColor</span><span class="o">.</span><span class="n">BLACK</span><span class="p">,</span> <span class="n">BugType</span><span class="o">.</span><span class="n">QUEEN_BEE</span><span class="p">)])</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">queen_pos</span><span class="p">,</span> <span class="n">direction</span><span class="p">))</span> <span class="k">for</span> <span class="n">direction</span> <span class="ow">in</span> <span class="n">Direction</span><span class="o">.</span><span class="n">flat</span><span class="p">())</span>
-        <span class="n">white_queen_surrounded</span> <span class="o">=</span> <span class="p">(</span><span class="n">queen_pos</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">[</span><span class="n">Bug</span><span class="p">(</span><span class="n">PlayerColor</span><span class="o">.</span><span class="n">WHITE</span><span class="p">,</span> <span class="n">BugType</span><span class="o">.</span><span class="n">QUEEN_BEE</span><span class="p">)])</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">queen_pos</span><span class="p">,</span> <span class="n">direction</span><span class="p">))</span> <span class="k">for</span> <span class="n">direction</span> <span class="ow">in</span> <span class="n">Direction</span><span class="o">.</span><span class="n">flat</span><span class="p">())</span>
+        <span class="n">black_queen_surrounded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_queen_neighbors</span><span class="p">(</span><span class="n">PlayerColor</span><span class="o">.</span><span class="n">BLACK</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span>
+        <span class="n">white_queen_surrounded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">count_queen_neighbors</span><span class="p">(</span><span class="n">PlayerColor</span><span class="o">.</span><span class="n">WHITE</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span>
         <span class="k">if</span> <span class="n">black_queen_surrounded</span> <span class="ow">and</span> <span class="n">white_queen_surrounded</span><span class="p">:</span>
           <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">GameState</span><span class="o">.</span><span class="n">DRAW</span>
         <span class="k">elif</span> <span class="n">black_queen_surrounded</span><span class="p">:</span>
           <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">GameState</span><span class="o">.</span><span class="n">WHITE_WINS</span>
         <span class="k">elif</span> <span class="n">white_queen_surrounded</span><span class="p">:</span>
           <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">GameState</span><span class="o">.</span><span class="n">BLACK_WINS</span>
+      <span class="k">return</span> <span class="bp">self</span>
     <span class="k">else</span><span class="p">:</span>
       <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;You can&#39;t </span><span class="si">{</span><span class="s2">&quot;play&quot;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">move</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">Move</span><span class="o">.</span><span class="n">PASS</span><span class="si">}</span><span class="s2"> when the game is over&quot;</span><span class="p">)</span></div>
 
@@ -236,6 +237,20 @@
             <span class="k">break</span>
       <span class="k">return</span> <span class="n">Move</span><span class="o">.</span><span class="n">stringify</span><span class="p">(</span><span class="n">moved</span><span class="p">,</span> <span class="n">relative</span><span class="p">,</span> <span class="n">direction</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Move</span><span class="o">.</span><span class="n">PASS</span></div>
+
+
+<div class="viewcode-block" id="Board.count_queen_neighbors">
+<a class="viewcode-back" href="../board.html#board.Board.count_queen_neighbors">[docs]</a>
+  <span class="k">def</span> <span class="nf">count_queen_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">color</span><span class="p">:</span> <span class="n">PlayerColor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Checks whether the specified player&#39;s queen is surrounded.</span>
+
+<span class="sd">    :param color: Player&#39;s color.</span>
+<span class="sd">    :type color: PlayerColor</span>
+<span class="sd">    :return: Whether the specified player&#39;s queen is surrounded.</span>
+<span class="sd">    :rtype: bool</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bugs_from_pos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_neighbor</span><span class="p">(</span><span class="n">queen_pos</span><span class="p">,</span> <span class="n">direction</span><span class="p">)))</span> <span class="k">for</span> <span class="n">direction</span> <span class="ow">in</span> <span class="n">Direction</span><span class="o">.</span><span class="n">flat</span><span class="p">())</span> <span class="k">if</span> <span class="p">(</span><span class="n">queen_pos</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bug_to_pos</span><span class="p">[</span><span class="n">Bug</span><span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">BugType</span><span class="o">.</span><span class="n">QUEEN_BEE</span><span class="p">)])</span> <span class="k">else</span> <span class="mi">0</span></div>
 
 
   <span class="k">def</span> <span class="nf">_parse_turn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">turn</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -722,7 +737,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &#169;2024, Riccardo Chimisso.
+      &#169;2024, Riccardo Chimisso & Alberto Vendramini.
       
       |
       Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>

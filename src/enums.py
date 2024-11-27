@@ -55,6 +55,57 @@ class Command(StrEnum):
   Exits the engine.
   """
 
+class Option(StrEnum):
+  """
+  Engine option.
+  """
+  STRATEGY_WHITE = "StrategyWhite"
+  """
+  AI strategy for player white.
+  """
+  STRATEGY_BLACK = "StrategyBlack"
+  """
+  AI strategy for player black.
+  """
+  NUM_THREADS = "NumThreads"
+  """
+  Available threads to parallelize AI thinking.
+  """
+
+class OptionType(StrEnum):
+  """
+  Option type.
+  """
+  BOOL = "bool"
+  """
+  Boolean type.
+  """
+  INT = "int"
+  """
+  Integer type.
+  """
+  FLOAT = "double"
+  """
+  Decimal type.
+  """
+  ENUM = "enum"
+  """
+  Enum type.
+  """
+
+class Strategy(StrEnum):
+  """
+  Possible AI strategy.
+  """
+  RANDOM = "Random"
+  """
+  Random strategy.
+  """
+  MINMAX = "Minmax"
+  """
+  Minmax with alpha-beta pruning strategy.
+  """
+
 class PlayerColor(StrEnum):
   """
   Player color.
@@ -76,6 +127,15 @@ class PlayerColor(StrEnum):
     :rtype: str
     """
     return self[0].lower()
+  
+  @property
+  def opposite(self):
+    """
+    Opposite color.
+
+    :rtype: PlayerColor
+    """
+    return PlayerColor.BLACK if self is PlayerColor.WHITE else PlayerColor.WHITE
 
 class GameState(StrEnum):
   """

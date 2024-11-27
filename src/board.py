@@ -104,7 +104,7 @@ class Board():
     """
     return ";".join([self.stringify_move(move) for move in self._get_valid_moves()]) or Move.PASS
 
-  def play(self, move_string: str) -> None:
+  def play(self, move_string: str):
     """
     Plays the given move.
 
@@ -128,14 +128,15 @@ class Board():
           self._pos_to_bug[move.destination].append(move.bug)
         else:
           self._pos_to_bug[move.destination] = [move.bug]
-        black_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.BLACK, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
-        white_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.WHITE, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
+        black_queen_surrounded = self.count_queen_neighbors(PlayerColor.BLACK) == 6
+        white_queen_surrounded = self.count_queen_neighbors(PlayerColor.WHITE) == 6
         if black_queen_surrounded and white_queen_surrounded:
           self.state = GameState.DRAW
         elif black_queen_surrounded:
           self.state = GameState.WHITE_WINS
         elif white_queen_surrounded:
           self.state = GameState.BLACK_WINS
+      return self
     else:
       raise ValueError(f"You can't {"play" if move else Move.PASS} when the game is over")
 
@@ -192,6 +193,17 @@ class Board():
             break
       return Move.stringify(moved, relative, direction)
     return Move.PASS
+
+  def count_queen_neighbors(self, color: PlayerColor) -> float:
+    """
+    Checks whether the specified player's queen is surrounded.
+
+    :param color: Player's color.
+    :type color: PlayerColor
+    :return: Whether the specified player's queen is surrounded.
+    :rtype: bool
+    """
+    return sum(bool(self._bugs_from_pos(self._get_neighbor(queen_pos, direction))) for direction in Direction.flat()) if (queen_pos := self._bug_to_pos[Bug(color, BugType.QUEEN_BEE)]) else 0
 
   def _parse_turn(self, turn: str) -> int:
     """

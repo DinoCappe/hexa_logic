@@ -5,7 +5,7 @@
 [UHP](https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol)-compliant [Hive](https://en.wikipedia.org/wiki/Hive_(game)) game engine in Python.  
 The game engine logic is - sometimes loosely, sometimes strongly - inspired from [Mzinga Engine](https://github.com/jonthysell/Mzinga).
 
-Currently, it's a WIP. Future plans include designing an AI to play the game.
+The engine comes with different AI agent configurations. More on this below.
 
 The repository includes builds for both a fully-fledged documentation generated with Sphinx and the ready-to-use `HivemindEngine.exe`.
 
@@ -48,3 +48,12 @@ To build the `HivemindEngine.exe` yourself, simply run the following command in 
 ```powershell
 pyinstaller ./src/engine.py --name HivemindEngine --noconsole --onefile
 ```
+
+## AI
+
+There are currently 2 implemented AI strategies:
+
+1. Random: the agent plays random moves.
+2. Minmax: the agent plays moves following a Minmax policy with alpha-beta pruning and a custom node (game state) evaluation.
+
+A third implementation will come in the future that will leverage machine learning.
