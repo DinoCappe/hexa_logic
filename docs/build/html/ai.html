@@ -40,20 +40,43 @@
 <dt class="sig sig-object py" id="ai.AlphaBetaPruner">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ai.</span></span><span class="sig-name descname"><span class="pre">AlphaBetaPruner</span></span><a class="reference internal" href="_modules/ai.html#AlphaBetaPruner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.AlphaBetaPruner" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#ai.Brain" title="ai.Brain"><code class="xref py py-class docutils literal notranslate"><span class="pre">Brain</span></code></a></p>
-<p>AI agent following a custom alpha-beta pruning policy.</p>
+<p>AI agent following an alpha-beta pruning policy.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ai.AlphaBetaPruner.abpruning">
+<span class="sig-name descname"><span class="pre">abpruning</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/ai.html#AlphaBetaPruner.abpruning"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.AlphaBetaPruner.abpruning" title="Link to this definition">¶</a></dt>
+<dd><p>Minmax with alpha-beta pruning to search for the best move, given the depth and time constraints.  
+This is an iterative version rather than recursive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>root</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a>) – Starting node.</p></li>
+<li><p><strong>max_depth</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum allowed depth to search at, defaults to 0.</p></li>
+<li><p><strong>time_limit</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum amount of seconds allowed to spend, defaults to 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Best move.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="ai.AlphaBetaPruner.calculate_best_move">
-<span class="sig-name descname"><span class="pre">calculate_best_move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/ai.html#AlphaBetaPruner.calculate_best_move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.AlphaBetaPruner.calculate_best_move" title="Link to this definition">¶</a></dt>
-<dd><p>Calculates the best move for given board and following the agent policy.</p>
+<span class="sig-name descname"><span class="pre">calculate_best_move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/ai.html#AlphaBetaPruner.calculate_best_move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.AlphaBetaPruner.calculate_best_move" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the best move for the given board state, following the agent’s policy.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a>) – Current playing board.</p></li>
-<li><p><strong>max_depth</strong> (<em>int</em>) – Maximum lookahead depth.</p></li>
+<li><p><strong>max_depth</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum lookahead depth, defaults to 0.</p></li>
+<li><p><strong>time_limit</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum time (in seconds) to calculate the best move, defaults to 0.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Best move stringified.</p>
+<dd class="field-even"><p>Stringified best move.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -64,17 +87,37 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="ai.AlphaBetaPruner.evaluate">
 <span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/ai.html#AlphaBetaPruner.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.AlphaBetaPruner.evaluate" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Evaluates the given node.  
+Currently, it’s a very naive implementation that weights the winning state (how many pieces surround the enemy queen minus how many pieces surround yours) and the mobility state (amount of your available moves minus the enemy’s).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>node</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a>) – Playing board.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Node value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="ai.AlphaBetaPruner.gen_children">
 <span class="sig-name descname"><span class="pre">gen_children</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Set</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ai.html#AlphaBetaPruner.gen_children"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.AlphaBetaPruner.gen_children" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="ai.AlphaBetaPruner.pruning">
-<span class="sig-name descname"><span class="pre">pruning</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/ai.html#AlphaBetaPruner.pruning"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.AlphaBetaPruner.pruning" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Generates valid children from the given parent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>parent</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a>) – Parent node.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Set of children.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Set[tuple[<a class="reference internal" href="board.html#board.Board" title="board.Board">Board</a>, str]]</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -85,17 +128,18 @@
 <p>Base abstract class for AI agents.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="ai.Brain.calculate_best_move">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">calculate_best_move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/ai.html#Brain.calculate_best_move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.Brain.calculate_best_move" title="Link to this definition">¶</a></dt>
-<dd><p>Calculates the best move for given board and following the agent policy.</p>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">calculate_best_move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/ai.html#Brain.calculate_best_move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.Brain.calculate_best_move" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the best move for the given board state, following the agent’s policy.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a>) – Current playing board.</p></li>
-<li><p><strong>max_depth</strong> (<em>int</em>) – Maximum lookahead depth.</p></li>
+<li><p><strong>max_depth</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum lookahead depth, defaults to 0.</p></li>
+<li><p><strong>time_limit</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum time (in seconds) to calculate the best move, defaults to 0.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Best move stringified.</p>
+<dd class="field-even"><p>Stringified best move.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>
@@ -106,12 +150,9 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="ai.Brain.empty_cache">
 <span class="sig-name descname"><span class="pre">empty_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/ai.html#Brain.empty_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.Brain.empty_cache" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="ai.Brain.is_terminal">
-<span class="sig-name descname"><span class="pre">is_terminal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/ai.html#Brain.is_terminal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.Brain.is_terminal" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Empties the current cache for the best move.  
+To be called OUTSIDE this class when needed.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -122,17 +163,18 @@
 <p>Random acting AI agent.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="ai.Random.calculate_best_move">
-<span class="sig-name descname"><span class="pre">calculate_best_move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/ai.html#Random.calculate_best_move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.Random.calculate_best_move" title="Link to this definition">¶</a></dt>
-<dd><p>Calculates the best move for given board and following the agent policy.</p>
+<span class="sig-name descname"><span class="pre">calculate_best_move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">board</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="board.html#board.Board" title="board.Board"><span class="pre">Board</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/ai.html#Random.calculate_best_move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#ai.Random.calculate_best_move" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the best move for the given board state, following the agent’s policy.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>board</strong> (<a class="reference internal" href="board.html#board.Board" title="board.Board"><em>Board</em></a>) – Current playing board.</p></li>
-<li><p><strong>max_depth</strong> (<em>int</em>) – Maximum lookahead depth.</p></li>
+<li><p><strong>max_depth</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum lookahead depth, defaults to 0.</p></li>
+<li><p><strong>time_limit</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum time (in seconds) to calculate the best move, defaults to 0.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Best move stringified.</p>
+<dd class="field-even"><p>Stringified best move.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>str</p>

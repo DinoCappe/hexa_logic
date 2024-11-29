@@ -34,14 +34,15 @@
   <h1>Source code for ai</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">choice</span>
-<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span><span class="p">,</span> <span class="n">time</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span> <span class="nn">enums</span> <span class="kn">import</span> <span class="n">GameState</span>
 <span class="kn">from</span> <span class="nn">board</span> <span class="kn">import</span> <span class="n">Board</span>
 
-<span class="c1"># TODO: Handle time limit</span>
-<span class="c1"># TODO: Fix alpha-beta pruning.</span>
+<span class="nb">type</span> <span class="n">ABNode</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Alpha-beta pruning node.</span>
+<span class="sd">&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="Brain">
 <a class="viewcode-back" href="../ai.html#ai.Brain">[docs]</a>
@@ -56,15 +57,17 @@
 <div class="viewcode-block" id="Brain.calculate_best_move">
 <a class="viewcode-back" href="../ai.html#ai.Brain.calculate_best_move">[docs]</a>
   <span class="nd">@abstractmethod</span>
-  <span class="k">def</span> <span class="nf">calculate_best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">board</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">calculate_best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">board</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">time_limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Calculates the best move for given board and following the agent policy.</span>
+<span class="sd">    Calculates the best move for the given board state, following the agent&#39;s policy.</span>
 
 <span class="sd">    :param board: Current playing board.</span>
 <span class="sd">    :type board: Board</span>
-<span class="sd">    :param max_depth: Maximum lookahead depth.</span>
-<span class="sd">    :type max_depth: int</span>
-<span class="sd">    :return: Best move stringified.</span>
+<span class="sd">    :param max_depth: Maximum lookahead depth, defaults to 0.</span>
+<span class="sd">    :type max_depth: int, optional</span>
+<span class="sd">    :param time_limit: Maximum time (in seconds) to calculate the best move, defaults to 0.</span>
+<span class="sd">    :type time_limit: int, optional</span>
+<span class="sd">    :return: Stringified best move.</span>
 <span class="sd">    :rtype: str</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">pass</span></div>
@@ -73,13 +76,11 @@
 <div class="viewcode-block" id="Brain.empty_cache">
 <a class="viewcode-back" href="../ai.html#ai.Brain.empty_cache">[docs]</a>
   <span class="k">def</span> <span class="nf">empty_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Empties the current cache for the best move.  </span>
+<span class="sd">    To be called OUTSIDE this class when needed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="kc">None</span></div>
-
-
-<div class="viewcode-block" id="Brain.is_terminal">
-<a class="viewcode-back" href="../ai.html#ai.Brain.is_terminal">[docs]</a>
-  <span class="k">def</span> <span class="nf">is_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">Board</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">state</span> <span class="ow">is</span> <span class="n">GameState</span><span class="o">.</span><span class="n">DRAW</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">state</span> <span class="ow">is</span> <span class="n">GameState</span><span class="o">.</span><span class="n">BLACK_WINS</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">state</span> <span class="ow">is</span> <span class="n">GameState</span><span class="o">.</span><span class="n">WHITE_WINS</span></div>
 </div>
 
 
@@ -92,7 +93,7 @@
 
 <div class="viewcode-block" id="Random.calculate_best_move">
 <a class="viewcode-back" href="../ai.html#ai.Random.calculate_best_move">[docs]</a>
-  <span class="k">def</span> <span class="nf">calculate_best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">board</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">calculate_best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">board</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">time_limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">choice</span><span class="p">(</span><span class="n">board</span><span class="o">.</span><span class="n">valid_moves</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">))</span>
     <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
@@ -104,94 +105,144 @@
 <a class="viewcode-back" href="../ai.html#ai.AlphaBetaPruner">[docs]</a>
 <span class="k">class</span> <span class="nc">AlphaBetaPruner</span><span class="p">(</span><span class="n">Brain</span><span class="p">):</span>
 <span class="w">  </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">  AI agent following a custom alpha-beta pruning policy.</span>
+<span class="sd">  AI agent following an alpha-beta pruning policy.</span>
 <span class="sd">  &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="AlphaBetaPruner.calculate_best_move">
 <a class="viewcode-back" href="../ai.html#ai.AlphaBetaPruner.calculate_best_move">[docs]</a>
-  <span class="k">def</span> <span class="nf">calculate_best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">board</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+  <span class="k">def</span> <span class="nf">calculate_best_move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">board</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">time_limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
-      <span class="n">_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pruning</span><span class="p">(</span><span class="n">board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">abpruning</span><span class="p">(</span><span class="n">board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">,</span> <span class="n">time_limit</span><span class="p">)</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span></div>
 
 
-<div class="viewcode-block" id="AlphaBetaPruner.pruning">
-<a class="viewcode-back" href="../ai.html#ai.AlphaBetaPruner.pruning">[docs]</a>
-  <span class="k">def</span> <span class="nf">pruning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-    <span class="c1"># Stack to simulate recursion</span>
-    <span class="n">stack</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="c1"># Each stack frame contains: (node, depth, alpha, beta, maximizing, child_iter, best_value, best_move)</span>
-    <span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">root</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span> <span class="kc">True</span><span class="p">,</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gen_children</span><span class="p">(</span><span class="n">root</span><span class="p">)),</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">),</span> <span class="n">root</span><span class="o">.</span><span class="n">valid_moves</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]))</span>
+<div class="viewcode-block" id="AlphaBetaPruner.abpruning">
+<a class="viewcode-back" href="../ai.html#ai.AlphaBetaPruner.abpruning">[docs]</a>
+  <span class="k">def</span> <span class="nf">abpruning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">:</span> <span class="n">Board</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">time_limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Minmax with alpha-beta pruning to search for the best move, given the depth and time constraints.  </span>
+<span class="sd">    This is an iterative version rather than recursive.</span>
 
-    <span class="n">final_result</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">root</span><span class="o">.</span><span class="n">valid_moves</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+<span class="sd">    :param root: Starting node.</span>
+<span class="sd">    :type root: Board</span>
+<span class="sd">    :param max_depth: Maximum allowed depth to search at, defaults to 0.</span>
+<span class="sd">    :type max_depth: int, optional</span>
+<span class="sd">    :param time_limit: Maximum amount of seconds allowed to spend, defaults to 0.</span>
+<span class="sd">    :type time_limit: int, optional</span>
+<span class="sd">    :return: Best move.</span>
+<span class="sd">    :rtype: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+
+    <span class="c1"># Stack to simulate recursion</span>
+    <span class="n">stack</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ABNode</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Each stack frame contains: (node, depth, alpha, beta, maximizing, child_iter, best_value, best_move)</span>
+    <span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">root</span><span class="p">,</span> <span class="n">max_depth</span> <span class="ow">or</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span> <span class="kc">True</span><span class="p">,</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gen_children</span><span class="p">(</span><span class="n">root</span><span class="p">)),</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">),</span> <span class="n">root</span><span class="o">.</span><span class="n">valid_moves</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="n">result</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">valid_moves</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="k">while</span> <span class="n">stack</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">time_limit</span> <span class="ow">and</span> <span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span> <span class="o">&gt;</span> <span class="n">time_limit</span><span class="p">:</span>
+        <span class="k">break</span>
+
       <span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">,</span> <span class="n">child_iter</span><span class="p">,</span> <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
 
-      <span class="k">if</span> <span class="n">depth</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_terminal</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+      <span class="k">if</span> <span class="n">depth</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">gameover</span><span class="p">:</span>
         <span class="c1"># Evaluate leaf or terminal node</span>
         <span class="n">evaluation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">stack</span><span class="p">:</span>
-          <span class="c1"># If this is the root node, store the result</span>
-          <span class="n">final_result</span> <span class="o">=</span> <span class="p">(</span><span class="n">evaluation</span><span class="p">,</span> <span class="n">best_move</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">stack</span><span class="p">:</span>
           <span class="c1"># Pass the evaluation result back up the stack</span>
-          <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_stack_frame</span><span class="p">(</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">best_move</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">)</span>
+          <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_parent</span><span class="p">(</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">evaluation</span><span class="p">,</span> <span class="n">best_move</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="c1"># If this is the root node, store the result</span>
+          <span class="n">result</span> <span class="o">=</span> <span class="n">best_move</span>
         <span class="k">continue</span>
 
       <span class="k">try</span><span class="p">:</span>
         <span class="c1"># Process the next child</span>
         <span class="n">child</span><span class="p">,</span> <span class="n">move</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">child_iter</span><span class="p">)</span>
+        <span class="c1"># Push this node back onto the stack to continue processing later</span>
         <span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">,</span> <span class="n">child_iter</span><span class="p">,</span> <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span><span class="p">))</span>
+        <span class="c1"># Push the child onto the stack for processing</span>
         <span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">child</span><span class="p">,</span> <span class="n">depth</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="ow">not</span> <span class="n">maximizing</span><span class="p">,</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gen_children</span><span class="p">(</span><span class="n">child</span><span class="p">)),</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">maximizing</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span> <span class="n">move</span><span class="p">))</span>
       <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
         <span class="c1"># All children processed; finalize the value for this node</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">stack</span><span class="p">:</span>
-          <span class="c1"># If this is the root node, store the result</span>
-          <span class="n">final_result</span> <span class="o">=</span> <span class="p">(</span><span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">stack</span><span class="p">:</span>
           <span class="c1"># Pass the result back up the stack</span>
-          <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_stack_frame</span><span class="p">(</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">)</span>
+          <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_parent</span><span class="p">(</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="c1"># If this is the root node, store the result</span>
+          <span class="n">result</span> <span class="o">=</span> <span class="n">best_move</span>
 
-    <span class="k">return</span> <span class="n">final_result</span></div>
+    <span class="k">return</span> <span class="n">result</span></div>
 
 
-  <span class="k">def</span> <span class="nf">_update_stack_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">child_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">move</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+  <span class="k">def</span> <span class="nf">_update_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">:</span> <span class="n">ABNode</span><span class="p">,</span> <span class="n">child_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">child_move</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ABNode</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Updates the given parent with the information from the child.</span>
+
+<span class="sd">    :param parent: Parent node to update.</span>
+<span class="sd">    :type parent: ABNode</span>
+<span class="sd">    :param child_value: Child node value.</span>
+<span class="sd">    :type child_value: float</span>
+<span class="sd">    :param child_move: Move that led to the child node.</span>
+<span class="sd">    :type child_move: str</span>
+<span class="sd">    :return: Updated parent node.</span>
+<span class="sd">    :rtype: ABNode</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Update the stack frame based on the returned child value</span>
-    <span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">,</span> <span class="n">child_iter</span><span class="p">,</span> <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span> <span class="o">=</span> <span class="n">frame</span>
+    <span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">,</span> <span class="n">child_iter</span><span class="p">,</span> <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span> <span class="o">=</span> <span class="n">parent</span>
 
     <span class="k">if</span> <span class="n">maximizing</span><span class="p">:</span>
       <span class="k">if</span> <span class="n">child_value</span> <span class="o">&gt;</span> <span class="n">best_value</span><span class="p">:</span>
-        <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span> <span class="o">=</span> <span class="n">child_value</span><span class="p">,</span> <span class="n">move</span>
+        <span class="n">best_value</span> <span class="o">=</span> <span class="n">child_value</span>
+        <span class="n">best_move</span> <span class="o">=</span> <span class="n">child_move</span>
       <span class="n">alpha</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">best_value</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
+      <span class="n">best_value</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">best_value</span><span class="p">,</span> <span class="n">child_value</span><span class="p">)</span>
       <span class="k">if</span> <span class="n">child_value</span> <span class="o">&lt;</span> <span class="n">best_value</span><span class="p">:</span>
-        <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span> <span class="o">=</span> <span class="n">child_value</span><span class="p">,</span> <span class="n">move</span>
+        <span class="n">best_value</span> <span class="o">=</span> <span class="n">child_value</span>
+        <span class="n">best_move</span> <span class="o">=</span> <span class="n">child_move</span>
       <span class="n">beta</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">best_value</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">alpha</span> <span class="o">&gt;=</span> <span class="n">beta</span><span class="p">:</span>
-      <span class="n">child_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">([])</span>  <span class="c1"># Clear the iterator to skip remaining children (prune)</span>
+    <span class="k">if</span> <span class="n">beta</span> <span class="o">&lt;=</span> <span class="n">alpha</span><span class="p">:</span>
+      <span class="c1"># Clear the iterator to skip remaining children (prune)</span>
+      <span class="n">child_iter</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">([])</span>
 
     <span class="k">return</span> <span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">maximizing</span><span class="p">,</span> <span class="n">child_iter</span><span class="p">,</span> <span class="n">best_value</span><span class="p">,</span> <span class="n">best_move</span>
 
 <div class="viewcode-block" id="AlphaBetaPruner.evaluate">
 <a class="viewcode-back" href="../ai.html#ai.AlphaBetaPruner.evaluate">[docs]</a>
   <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">Board</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evaluates the given node.  </span>
+<span class="sd">    Currently, it&#39;s a very naive implementation that weights the winning state (how many pieces surround the enemy queen minus how many pieces surround yours) and the mobility state (amount of your available moves minus the enemy&#39;s).</span>
+
+<span class="sd">    :param node: Playing board.</span>
+<span class="sd">    :type node: Board</span>
+<span class="sd">    :return: Node value.</span>
+<span class="sd">    :rtype: float</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">minimizing_color</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">current_player_color</span>
     <span class="n">maximizing_color</span> <span class="o">=</span> <span class="n">minimizing_color</span><span class="o">.</span><span class="n">opposite</span>
-
-    <span class="n">min_player_surrounding</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">count_queen_neighbors</span><span class="p">(</span><span class="n">minimizing_color</span><span class="p">)</span>
-    <span class="n">max_player_surrounding</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">count_queen_neighbors</span><span class="p">(</span><span class="n">maximizing_color</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">min_player_surrounding</span> <span class="o">-</span> <span class="n">max_player_surrounding</span></div>
+    <span class="k">return</span> <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">count_queen_neighbors</span><span class="p">(</span><span class="n">minimizing_color</span><span class="p">)</span> <span class="o">-</span> <span class="n">node</span><span class="o">.</span><span class="n">count_queen_neighbors</span><span class="p">(</span><span class="n">maximizing_color</span><span class="p">))</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">+</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">calculate_valid_moves_for_player</span><span class="p">(</span><span class="n">maximizing_color</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">calculate_valid_moves_for_player</span><span class="p">(</span><span class="n">minimizing_color</span><span class="p">)))</span> <span class="o">//</span> <span class="mi">2</span></div>
 
 
 <div class="viewcode-block" id="AlphaBetaPruner.gen_children">
 <a class="viewcode-back" href="../ai.html#ai.AlphaBetaPruner.gen_children">[docs]</a>
   <span class="k">def</span> <span class="nf">gen_children</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">:</span> <span class="n">Board</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Board</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-    <span class="k">return</span> <span class="p">{(</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span><span class="o">.</span><span class="n">play</span><span class="p">(</span><span class="n">move</span><span class="p">),</span> <span class="n">move</span><span class="p">)</span> <span class="k">for</span> <span class="n">move</span> <span class="ow">in</span> <span class="n">parent</span><span class="o">.</span><span class="n">valid_moves</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)}</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generates valid children from the given parent.</span>
+
+<span class="sd">    :param parent: Parent node.</span>
+<span class="sd">    :type parent: Board</span>
+<span class="sd">    :return: Set of children.</span>
+<span class="sd">    :rtype: Set[tuple[Board, str]]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{(</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span><span class="o">.</span><span class="n">play</span><span class="p">(</span><span class="n">move</span><span class="p">),</span> <span class="n">move</span><span class="p">)</span> <span class="k">for</span> <span class="n">move</span> <span class="ow">in</span> <span class="n">parent</span><span class="o">.</span><span class="n">valid_moves</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">parent</span><span class="o">.</span><span class="n">gameover</span><span class="p">}</span></div>
 </div>
 
+  
 </pre></div>
 
           </div>

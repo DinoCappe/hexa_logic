@@ -38,7 +38,10 @@ class Board():
     self.turn: int = turn
     self.move_strings: list[str] = []
     self.moves: list[Optional[Move]] = []
-    self._valid_moves_cache: Optional[Set[Move]] = None
+    self._valid_moves_cache: dict[PlayerColor, Optional[Set[Move]]] = {
+      PlayerColor.WHITE: None,
+      PlayerColor.BLACK: None
+    }
     self._pos_to_bug: dict[Position, list[Bug]] = {}
     """
     Map for tile positions on the board and bug pieces placed there (pieces can be stacked).
@@ -96,13 +99,86 @@ class Board():
     return bool(self._bug_to_pos[Bug(self.current_player_color, BugType.QUEEN_BEE)])
 
   @property
+  def gameover(self) -> bool:
+    """
+    Whether the game is over.
+
+    :rtype: bool
+    """
+    return self.state is GameState.DRAW or self.state is GameState.WHITE_WINS or self.state is GameState.BLACK_WINS
+
+  @property
   def valid_moves(self) -> str:
     """
     Current possible legal moves in a joined list of MoveStrings.
 
     :rtype: str
     """
-    return ";".join([self.stringify_move(move) for move in self._get_valid_moves()]) or Move.PASS
+    return ";".join([self.stringify_move(move) for move in self.calculate_valid_moves_for_player(self.current_player_color)]) or Move.PASS
+
+  def calculate_valid_moves_for_player(self, color: PlayerColor, force: bool = False) -> Set[Move]:
+    """
+    Calculates the set of valid moves for the current player.
+
+    :return: Set of valid moves.
+    :rtype: Set[Move]
+    """
+    if not self._valid_moves_cache[color] or force:
+      moves: Set[Move] = set()
+      if self.state is GameState.NOT_STARTED or self.state is GameState.IN_PROGRESS:
+        for bug, pos in self._bug_to_pos.items():
+          # Iterate over available pieces of the current player
+          if bug.color is color:
+            # Turn 0 is White player's first turn
+            if self.turn == 0:
+              # Can't place the queen on the first turn
+              if bug.type is not BugType.QUEEN_BEE and self._can_bug_be_played(bug):
+                # Add the only valid placement for the current bug piece
+                moves.add(Move(bug, None, self.ORIGIN))
+            # Turn 0 is Black player's first turn
+            elif self.turn == 1:
+              # Can't place the queen on the first turn
+              if bug.type is not BugType.QUEEN_BEE and self._can_bug_be_played(bug):
+                # Add all valid placements for the current bug piece (can be placed only around the first White player's first piece)
+                moves.update(Move(bug, None, self._get_neighbor(self.ORIGIN, direction)) for direction in Direction.flat())
+            # Bug piece has not been played yet
+            elif not pos:
+              # Check hand placement, and turn and queen placement, related rule.
+              if self._can_bug_be_played(bug) and (self.current_player_turn != 4 or (self.current_player_turn == 4 and (self.current_player_queen_in_play or (not self.current_player_queen_in_play and bug.type is BugType.QUEEN_BEE)))):
+                # Add all valid placements for the current bug piece
+                moves.update(Move(bug, None, placement) for placement in self._get_valid_placements_for_color(color))
+            # A bug piece in play can move only if it's at the top and its queen is in play and has not been moved in the previous player's turn
+            elif self.current_player_queen_in_play and self._bugs_from_pos(pos)[-1] == bug and self._was_not_last_moved(bug):
+              # Can't move pieces that would break the hive. Pieces stacked upon other can never break the hive by moving
+              if len(self._bugs_from_pos(pos)) > 1 or self._can_move_without_breaking_hive(pos):
+                match bug.type:
+                  case BugType.QUEEN_BEE:
+                    moves.update(self._get_sliding_moves(bug, pos, 1))
+                  case BugType.SPIDER:
+                    moves.update(self._get_sliding_moves(bug, pos, 3))
+                  case BugType.BEETLE:
+                    moves.update(self._get_beetle_moves(bug, pos))
+                  case BugType.GRASSHOPPER:
+                    moves.update(self._get_grasshopper_moves(bug, pos))
+                  case BugType.SOLDIER_ANT:
+                    moves.update(self._get_sliding_moves(bug, pos))
+                  case BugType.MOSQUITO:
+                    moves.update(self._get_mosquito_moves(bug, pos))
+                  case BugType.LADYBUG:
+                    moves.update(self._get_ladybug_moves(bug, pos))
+                  case BugType.PILLBUG:
+                    moves.update(self._get_sliding_moves(bug, pos, 1))
+                    moves.update(self._get_pillbug_special_moves(pos))
+              else:
+                match bug.type:
+                  case BugType.MOSQUITO:
+                    moves.update(self._get_mosquito_moves(bug, pos, True))
+                  case BugType.PILLBUG:
+                    moves.update(self._get_pillbug_special_moves(pos))
+                  case _:
+                    pass
+      self._valid_moves_cache[color] = moves
+    return self._valid_moves_cache[color] or set()
 
   def play(self, move_string: str):
     """
@@ -119,7 +195,7 @@ class Board():
       self.turn += 1
       self.move_strings.append(move_string)
       self.moves.append(move)
-      self._valid_moves_cache = None
+      self._valid_moves_cache[self.current_player_color] = None
       if move:
         self._bug_to_pos[move.bug] = move.destination
         if move.origin:
@@ -154,10 +230,10 @@ class Board():
         if self.state is not GameState.IN_PROGRESS:
           self.state = GameState.IN_PROGRESS
         for _ in range(amount):
+          self._valid_moves_cache[self.current_player_color] = None
           self.turn -= 1
           self.move_strings.pop()
           move = self.moves.pop()
-          self._valid_moves_cache = None
           if move:
             self._pos_to_bug[move.destination].pop()
             self._bug_to_pos[move.bug] = move.origin
@@ -264,70 +340,7 @@ class Board():
     else:
       raise ValueError(f"Expected {self.turn} moves but got {len(moves)}")
 
-  def _get_valid_moves(self) -> Set[Move]:
-    """
-    Calculates the set of valid moves for the current player.
-
-    :return: Set of valid moves.
-    :rtype: Set[Move]
-    """
-    if not self._valid_moves_cache:
-      self._valid_moves_cache = set()
-      if self.state is GameState.NOT_STARTED or self.state is GameState.IN_PROGRESS:
-        for bug, pos in self._bug_to_pos.items():
-          # Iterate over available pieces of the current player
-          if bug.color is self.current_player_color:
-            # Turn 0 is White player's first turn
-            if self.turn == 0:
-              # Can't place the queen on the first turn
-              if bug.type is not BugType.QUEEN_BEE and self._can_bug_be_played(bug):
-                # Add the only valid placement for the current bug piece
-                self._valid_moves_cache.add(Move(bug, None, self.ORIGIN))
-            # Turn 0 is Black player's first turn
-            elif self.turn == 1:
-              # Can't place the queen on the first turn
-              if bug.type is not BugType.QUEEN_BEE and self._can_bug_be_played(bug):
-                # Add all valid placements for the current bug piece (can be placed only around the first White player's first piece)
-                self._valid_moves_cache.update(Move(bug, None, self._get_neighbor(self.ORIGIN, direction)) for direction in Direction.flat())
-            # Bug piece has not been played yet
-            elif not pos:
-              # Check hand placement, and turn and queen placement, related rule.
-              if self._can_bug_be_played(bug) and (self.current_player_turn != 4 or (self.current_player_turn == 4 and (self.current_player_queen_in_play or (not self.current_player_queen_in_play and bug.type is BugType.QUEEN_BEE)))):
-                # Add all valid placements for the current bug piece
-                self._valid_moves_cache.update(Move(bug, None, placement) for placement in self._get_valid_placements())
-            # A bug piece in play can move only if it's at the top and its queen is in play and has not been moved in the previous player's turn
-            elif self.current_player_queen_in_play and self._bugs_from_pos(pos)[-1] == bug and self._was_not_last_moved(bug):
-              # Can't move pieces that would break the hive. Pieces stacked upon other can never break the hive by moving
-              if len(self._bugs_from_pos(pos)) > 1 or self._can_move_without_breaking_hive(pos):
-                match bug.type:
-                  case BugType.QUEEN_BEE:
-                    self._valid_moves_cache.update(self._get_sliding_moves(bug, pos, 1))
-                  case BugType.SPIDER:
-                    self._valid_moves_cache.update(self._get_sliding_moves(bug, pos, 3))
-                  case BugType.BEETLE:
-                    self._valid_moves_cache.update(self._get_beetle_moves(bug, pos))
-                  case BugType.GRASSHOPPER:
-                    self._valid_moves_cache.update(self._get_grasshopper_moves(bug, pos))
-                  case BugType.SOLDIER_ANT:
-                    self._valid_moves_cache.update(self._get_sliding_moves(bug, pos))
-                  case BugType.MOSQUITO:
-                    self._valid_moves_cache.update(self._get_mosquito_moves(bug, pos))
-                  case BugType.LADYBUG:
-                    self._valid_moves_cache.update(self._get_ladybug_moves(bug, pos))
-                  case BugType.PILLBUG:
-                    self._valid_moves_cache.update(self._get_sliding_moves(bug, pos, 1))
-                    self._valid_moves_cache.update(self._get_pillbug_special_moves(pos))
-              else:
-                match bug.type:
-                  case BugType.MOSQUITO:
-                    self._valid_moves_cache.update(self._get_mosquito_moves(bug, pos, True))
-                  case BugType.PILLBUG:
-                    self._valid_moves_cache.update(self._get_pillbug_special_moves(pos))
-                  case _:
-                    pass
-    return self._valid_moves_cache
-
-  def _get_valid_placements(self) -> Set[Position]:
+  def _get_valid_placements_for_color(self, color: PlayerColor) -> Set[Position]:
     """
     Calculates all valid placements for the current player.
 
@@ -337,14 +350,14 @@ class Board():
     placements: Set[Position] = set()
     # Iterate over all placed bug pieces of the current player
     for bug, pos in self._bug_to_pos.items():
-      if bug.color is self.current_player_color and pos and self._is_bug_on_top(bug):
+      if bug.color is color and pos and self._is_bug_on_top(bug):
         # Iterate over all neighbors of the current bug piece
         for direction in Direction.flat():
           neighbor = self._get_neighbor(pos, direction)
           # If the neighboring tile is empty
           if not self._bugs_from_pos(neighbor):
             # If all neighbor's neighbors are empty or of the same color, add the neighbor as a valid placement
-            if all(not self._bugs_from_pos(self._get_neighbor(neighbor, dir)) or self._bugs_from_pos(self._get_neighbor(neighbor, dir))[-1].color is self.current_player_color for dir in Direction.flat() if dir is not direction.opposite):
+            if all(not self._bugs_from_pos(self._get_neighbor(neighbor, dir)) or self._bugs_from_pos(self._get_neighbor(neighbor, dir))[-1].color is color for dir in Direction.flat() if dir is not direction.opposite):
               placements.add(neighbor)
     return placements
 
@@ -570,7 +583,7 @@ class Board():
     :rtype: Optional[Move]
     """
     if move_string == Move.PASS:
-      if not self._get_valid_moves():
+      if not self.calculate_valid_moves_for_player(self.current_player_color):
         return None
       raise ValueError(f"You can't pass when you have valid moves")
     if (match := re.fullmatch(Move.REGEX, move_string)):
@@ -579,7 +592,7 @@ class Board():
         moved = Bug.parse(bug_string_1)
         if (relative_pos := self._pos_from_bug(Bug.parse(bug_string_2)) if bug_string_2 else self.ORIGIN):
           move = Move(moved, self._pos_from_bug(moved), self._get_neighbor(relative_pos, Direction(f"{left_dir}|") if left_dir else Direction(f"|{right_dir or ""}")))
-          if move in self._get_valid_moves():
+          if move in self.calculate_valid_moves_for_player(self.current_player_color):
             return move
           raise ValueError(f"'{move_string}' is not a valid move for the current board state")
         raise ValueError(f"'{bug_string_2}' has not been played yet")

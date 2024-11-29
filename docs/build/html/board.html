@@ -54,6 +54,20 @@
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="board.Board.calculate_valid_moves_for_player">
+<span class="sig-name descname"><span class="pre">calculate_valid_moves_for_player</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="enums.html#enums.PlayerColor" title="enums.PlayerColor"><span class="pre">PlayerColor</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Set</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="game.html#game.Move" title="game.Move"><span class="pre">Move</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/board.html#Board.calculate_valid_moves_for_player"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.Board.calculate_valid_moves_for_player" title="Link to this definition">¶</a></dt>
+<dd><p>Calculates the set of valid moves for the current player.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Set of valid moves.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Set[<a class="reference internal" href="game.html#game.Move" title="game.Move">Move</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="board.Board.count_queen_neighbors">
 <span class="sig-name descname"><span class="pre">count_queen_neighbors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="enums.html#enums.PlayerColor" title="enums.PlayerColor"><span class="pre">PlayerColor</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/board.html#Board.count_queen_neighbors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#board.Board.count_queen_neighbors" title="Link to this definition">¶</a></dt>
 <dd><p>Checks whether the specified player’s queen is surrounded.</p>
@@ -99,6 +113,17 @@
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="board.Board.gameover">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">gameover</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#board.Board.gameover" title="Link to this definition">¶</a></dt>
+<dd><p>Whether the game is over.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
 </dd>
 </dl>
 </dd></dl>
