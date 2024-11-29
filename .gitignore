@@ -4,3 +4,4 @@
 /src/__pycache__
 /build
 *.spec
+docs\build\html\.buildinfo.bak
