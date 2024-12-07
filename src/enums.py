@@ -127,7 +127,7 @@ class PlayerColor(StrEnum):
     :rtype: str
     """
     return self[0].lower()
-  
+
   @property
   def opposite(self):
     """
@@ -197,7 +197,7 @@ class GameType(Flag):
   """
 
   @classmethod
-  def parse(cls, type: str):
+  def parse(cls, game_type: str):
     """
     Parses a GameTypeString.  
     The GameTypeString always needs to include the Base GameType.
@@ -208,13 +208,13 @@ class GameType(Flag):
     :return: GameType.
     :rtype: GameType
     """
-    if type:
-      base, *expansions = type.split("+")
+    if game_type:
+      base, *expansions = game_type.split("+")
       try:
-        if GameType[base] != GameType.Base or expansions == [""] or len(expansions) > 1 and type.find("+") >= 0: raise KeyError()
+        if GameType[base] != GameType.Base or expansions == [""] or len(expansions) > 1 and game_type.find("+") >= 0: raise KeyError()
         return reduce(lambda type, expansion: type | expansion, [GameType[expansion] for expansion in (expansions[0] if expansions else "")], GameType[base])
-      except KeyError:
-        raise ValueError(f"'{type}' is not a valid GameType")
+      except KeyError as e:
+        raise ValueError(f"'{game_type}' is not a valid GameType") from e
     return GameType.Base
 
   def __str__(self) -> str:
@@ -371,7 +371,7 @@ class Direction(StrEnum):
         return self
       case _:
         return list(Direction)[(self.delta_index + 1) % 6]
-  
+
   @property
   def right_of(self):
     """

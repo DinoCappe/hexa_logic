@@ -1,11 +1,11 @@
+import os
+import re
 from typing import TypeGuard, Final, Optional, Any
 from copy import deepcopy
 from enums import Command, Option, OptionType, Strategy, PlayerColor
 from board import Board
 from game import Move
 from ai import Brain, Random, AlphaBetaPruner
-import os
-import re
 
 class Engine():
   """
@@ -66,7 +66,7 @@ class Engine():
 
   def __getitem__(self, attr: str):
     return self.__dict__[attr] if attr in self.__dict__ else type(self).__dict__[attr]
-  
+
   def __setitem__(self, attr: str, value: Any):
     self.__dict__[attr] = value
 
@@ -76,7 +76,7 @@ class Engine():
     """
     self.info()
     while True:
-      print(f"ok")
+      print("ok")
       match input().strip().split():
         case [Command.INFO]:
           self.info()
@@ -194,7 +194,7 @@ class Engine():
     if not num_args:
       for option in Option:
         self._get_option(option)
-    elif num_args >= 2 and num_args <= 3:
+    elif 2 <= num_args <= 3:
       if (option := arguments[1]) in Option:
         if num_args == 2 and arguments[0] == "get":
           self._get_option(Option(option))
@@ -214,7 +214,7 @@ class Engine():
     :param option: Option to print.
     :type option: Option
     """
-    print(f"{option};{self.OPTION_TYPES[option]};{self[option.lower()]};{self[f"DEFAULT_{option.name}"]};", end = "")
+    print(f"{option};{self.OPTION_TYPES[option]};{self[option.lower()]};{self[f"DEFAULT_{option.name}"]};", end="")
     match option:
       # Handle options with type Strategy
       case Option.STRATEGY_WHITE | Option.STRATEGY_BLACK:
@@ -222,7 +222,7 @@ class Engine():
       # Handle options with type Int or Float
       case Option.NUM_THREADS:
         print(f"{self[f"MIN_{option.name}"]};{self[f"MAX_{option.name}"]}")
-  
+
   def _set_option(self, option: Option, value: str) -> None:
     """
     Sets the value of the specified option.
@@ -280,9 +280,9 @@ class Engine():
     """
     if self.is_active(self.board):
       if restriction == "time" and re.fullmatch(r"[0-9]{2}:[0-5][0-9]:[0-5][0-9]", value):
-        print(self.brains[self.board.current_player_color].calculate_best_move(deepcopy(self.board), time_limit = sum(factor * int(time) for factor, time in zip([3600, 60, 1], value.split(':')))))
+        print(self.brains[self.board.current_player_color].calculate_best_move(deepcopy(self.board), time_limit=sum(factor * int(time) for factor, time in zip([3600, 60, 1], value.split(':')))))
       elif restriction == "depth" and value.isdigit() and (max_depth := int(value)) > 0:
-        print(self.brains[self.board.current_player_color].calculate_best_move(deepcopy(self.board), max_depth = max_depth))
+        print(self.brains[self.board.current_player_color].calculate_best_move(deepcopy(self.board), max_depth=max_depth))
       else:
         self.error(f"Invalid arguments for command '{Command.BESTMOVE}'")
 

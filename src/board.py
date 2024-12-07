@@ -1,7 +1,7 @@
+import re
 from typing import Final, Optional, Set
 from enums import GameType, GameState, PlayerColor, BugType, Direction
 from game import Position, Bug, Move
-import re
 
 class Board():
   """
@@ -32,8 +32,8 @@ class Board():
     :param gamestring: GameString, defaults to "".
     :type gamestring: str, optional
     """
-    type, state, turn, moves = self._parse_gamestring(gamestring)
-    self.type: Final[GameType] = type
+    game_type, state, turn, moves = self._parse_gamestring(gamestring)
+    self.type: Final[GameType] = game_type
     self.state: GameState = state
     self.turn: int = turn
     self.move_strings: list[str] = []
@@ -213,8 +213,7 @@ class Board():
         elif white_queen_surrounded:
           self.state = GameState.BLACK_WINS
       return self
-    else:
-      raise ValueError(f"You can't {"play" if move else Move.PASS} when the game is over")
+    raise ValueError(f"You can't {"play" if move else Move.PASS} when the game is over")
 
   def undo(self, amount: int = 1) -> None:
     """
@@ -244,7 +243,7 @@ class Board():
       else:
         raise ValueError(f"Not enough moves to undo: asked for {amount} but only {len(self.moves)} were made")
     else:
-      raise ValueError(f"The game has yet to begin")
+      raise ValueError("The game has yet to begin")
 
   def stringify_move(self, move: Optional[Move]) -> str:
     """
@@ -262,10 +261,10 @@ class Board():
       if (dest_bugs := self._bugs_from_pos(move.destination)):
         relative = dest_bugs[-1]
       else:
-        for dir in Direction.flat():
-          if (neighbor_bugs := self._bugs_from_pos(self._get_neighbor(move.destination, dir))) and (neighbor_bug := neighbor_bugs[0]) != moved:
+        for neighbor_dir in Direction.flat():
+          if (neighbor_bugs := self._bugs_from_pos(self._get_neighbor(move.destination, neighbor_dir))) and (neighbor_bug := neighbor_bugs[0]) != moved:
             relative = neighbor_bug
-            direction = dir.opposite
+            direction = neighbor_dir.opposite
             break
       return Move.stringify(moved, relative, direction)
     return Move.PASS
@@ -295,10 +294,8 @@ class Board():
       color, player_turn = match.groups()
       if (turn_number := int(player_turn)) > 0:
         return 2 * turn_number - 2 + list(PlayerColor).index(PlayerColor(color))
-      else:
-        raise ValueError(f"The turn number must be greater than 0")
-    else:
-      raise ValueError(f"'{turn}' is not a valid TurnString")
+      raise ValueError("The turn number must be greater than 0")
+    raise ValueError(f"'{turn}' is not a valid TurnString")
 
   def _parse_gamestring(self, gamestring: str) -> tuple[GameType, GameState, int, list[str]]:
     """
@@ -315,8 +312,8 @@ class Board():
       values += ["", f"{PlayerColor.WHITE}[1]"]
     elif len(values) < 3:
       raise TypeError(f"'{gamestring}' is not a valid GameString")
-    type, state, turn, *moves = values
-    return GameType.parse(type), GameState.parse(state), self._parse_turn(turn), moves
+    game_type, state, turn, *moves = values
+    return GameType.parse(game_type), GameState.parse(state), self._parse_turn(turn), moves
 
   def _play_initial_moves(self, moves: list[str]) -> None:
     """
@@ -460,11 +457,11 @@ class Board():
     bugs_copied: Set[BugType] = set()
     for direction in Direction.flat():
       if (bugs := self._bugs_from_pos(self._get_neighbor(origin, direction))) and (neighbor := bugs[-1]).type not in bugs_copied:
-         bugs_copied.add(neighbor.type)
-         if special_only:
-           if neighbor.type == BugType.PILLBUG:
-             moves.update(self._get_pillbug_special_moves(origin))
-         else:
+        bugs_copied.add(neighbor.type)
+        if special_only:
+          if neighbor.type == BugType.PILLBUG:
+            moves.update(self._get_pillbug_special_moves(origin))
+        else:
           match neighbor.type:
             case BugType.QUEEN_BEE:
               moves.update(self._get_sliding_moves(bug, origin, 1))
@@ -585,7 +582,7 @@ class Board():
     if move_string == Move.PASS:
       if not self.calculate_valid_moves_for_player(self.current_player_color):
         return None
-      raise ValueError(f"You can't pass when you have valid moves")
+      raise ValueError("You can't pass when you have valid moves")
     if (match := re.fullmatch(Move.REGEX, move_string)):
       bug_string_1, _, _, _, _, left_dir, bug_string_2, _, _, _, right_dir = match.groups()
       if not left_dir or not right_dir:
@@ -596,7 +593,7 @@ class Board():
             return move
           raise ValueError(f"'{move_string}' is not a valid move for the current board state")
         raise ValueError(f"'{bug_string_2}' has not been played yet")
-      raise ValueError(f"Only one direction at a time can be specified")
+      raise ValueError("Only one direction at a time can be specified")
     raise ValueError(f"'{move_string}' is not a valid MoveString")
 
   def _is_bug_on_top(self, bug: Bug) -> bool:
@@ -608,7 +605,7 @@ class Board():
     :return: Whether the bug is at the top.
     :rtype: bool
     """
-    return (pos := self._pos_from_bug(bug)) != None and self._bugs_from_pos(pos)[-1] == bug
+    return (pos := self._pos_from_bug(bug)) is not None and self._bugs_from_pos(pos)[-1] == bug
 
   def _bugs_from_pos(self, position: Position) -> list[Bug]:
     """

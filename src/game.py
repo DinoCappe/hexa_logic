@@ -1,6 +1,6 @@
+import re
 from typing import Final, Optional
 from enums import PlayerColor, BugType, Direction
-import re
 
 class Position():
   """
@@ -21,7 +21,7 @@ class Position():
 
   def __add__(self, other: object):
     return Position(self.q + other.q, self.r + other.r) if isinstance(other, Position) else NotImplemented
-    
+
   def __sub__(self, other: object):
     return Position(self.q - other.q, self.r - other.r) if isinstance(other, Position) else NotImplemented
 
@@ -50,8 +50,8 @@ class Bug():
     :rtype: Bug
     """
     if (match := re.fullmatch(cls.REGEX, bug)):
-      color, type, id = match.groups()
-      return Bug(cls.COLORS[color], BugType(type), int(id or 0))
+      color, bug_type, bug_id = match.groups()
+      return Bug(cls.COLORS[color], BugType(bug_type), int(bug_id or 0))
     raise ValueError(f"'{bug}' is not a valid BugString")
 
   def __init__(self, color: PlayerColor, bug_type: BugType, bug_id: int = 0) -> None:
@@ -64,7 +64,7 @@ class Bug():
 
   def __hash__(self) -> int:
     return hash(str(self))
-  
+
   def __eq__(self, value: object) -> bool:
     return self is value or isinstance(value, Bug) and self.color is value.color and self.type is value.type and self.id == value.id
 

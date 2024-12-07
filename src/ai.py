@@ -32,7 +32,6 @@ class Brain(ABC):
     :return: Stringified best move.
     :rtype: str
     """
-    pass
 
   def empty_cache(self) -> None:
     """
@@ -178,4 +177,3 @@ class AlphaBetaPruner(Brain):
     :rtype: Set[tuple[Board, str]]
     """
     return {(deepcopy(parent).play(move), move) for move in parent.valid_moves.split(";") if not parent.gameover}
-  
