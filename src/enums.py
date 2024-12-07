@@ -322,7 +322,7 @@ class Direction(StrEnum):
     :rtype: list[Direction]
     """
     return [direction for direction in Direction if direction is not Direction.ABOVE and direction is not Direction.BELOW]
-  
+
   @classmethod
   def flat_left(cls):
     """

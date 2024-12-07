@@ -69,7 +69,7 @@ class Board():
     self._play_initial_moves(moves)
 
   def __str__(self) -> str:
-    return f"{self.type};{self.state};{self.current_player_color}[{self.current_player_turn}]{';' if len(self.moves) else ''}{';'.join(self.move_strings)}"
+    return f"{self.type};{self.state};{self.current_player_color}[{self.current_player_turn}]{';' if self.moves else ''}{';'.join(self.move_strings)}"
 
   @property
   def current_player_color(self) -> PlayerColor:
@@ -532,7 +532,7 @@ class Board():
     # If there is more than 1 gap, perform a DFS to check if all neighbors are still connected in some way.
     if sum(bool(neighbors[i] and not neighbors[i - 1]) for i in range(len(neighbors))) > 1:
       visited: Set[Position] = set()
-      neighbors_pos: list[Position] = [pos for bugs in neighbors if bugs and (pos := self._pos_from_bug(bugs[-1]))]    
+      neighbors_pos: list[Position] = [pos for bugs in neighbors if bugs and (pos := self._pos_from_bug(bugs[-1]))]
       stack: Set[Position] = {neighbors_pos[0]}
       while stack:
         current = stack.pop()
