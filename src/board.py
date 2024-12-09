@@ -628,7 +628,7 @@ class Board():
     :rtype: Optional[Position]
     """
     return self._bug_to_pos[bug] if bug in self._bug_to_pos else None
-
+  
   def _get_neighbor(self, position: Position, direction: Direction) -> Position:
     """
     Returns the neighboring position from the given direction.
@@ -641,3 +641,25 @@ class Board():
     :rtype: Position
     """
     return position + self.NEIGHBOR_DELTAS[direction.delta_index]
+
+  def count_moves_near_queen(self, color: PlayerColor) -> int:
+    """
+    Returns the number of available moves that reach the neighboring tiles of the enemy queen bee.
+
+    :param color: Player's color.
+    :type color: PlayerColor
+    :return: Number of moves that reach the enemy queen bee.
+    :rtype: int
+    """
+    valid_moves=self.calculate_valid_moves_for_player(color,True)
+    #trova intersezione con posizioni attorno alla regina avversaria
+    collision_count=0
+    for move in valid_moves:
+      dest=move.destination
+      neighbours=[self._get_neighbor(dest,direction) for direction in Direction]
+      for pos in neighbours:
+        for bug in self._pos_to_bug[pos]:
+          if bug.color.opposite==color and bug.type==BugType.QUEEN_BEE:
+            collision_count+=1
+    
+    return collision_count
