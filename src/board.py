@@ -652,14 +652,17 @@ class Board():
     :rtype: int
     """
     valid_moves=self.calculate_valid_moves_for_player(color,True)
-    #trova intersezione con posizioni attorno alla regina avversaria
+    
     collision_count=0
     for move in valid_moves:
       dest=move.destination
+      # Get the neighbouring tiles of the destination
       neighbours=[self._get_neighbor(dest,direction) for direction in Direction]
+      # Check if the enemy queen bee is in any of the neighbouring tiles
       for pos in neighbours:
-        for bug in self._pos_to_bug[pos]:
-          if bug.color.opposite==color and bug.type==BugType.QUEEN_BEE:
-            collision_count+=1
+        if pos in self._pos_to_bug:
+          for bug in self._pos_to_bug[pos]:
+            if bug.color.opposite==color and bug.type==BugType.QUEEN_BEE:
+              collision_count+=1
     
     return collision_count
