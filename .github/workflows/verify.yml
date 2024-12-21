@@ -5,7 +5,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  call-build:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
   verify_code:
+    needs: call-build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

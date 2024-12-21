@@ -12,6 +12,7 @@ jobs:
     secrets: inherit
 
   test:
+    needs: call-build
     runs-on: ubuntu-latest
     steps:
       - name: Unit Tests
