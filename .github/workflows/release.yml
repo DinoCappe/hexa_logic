@@ -13,7 +13,7 @@ on:
         default: false
 
 jobs:
-  call-version-validation:
+  version-validation:
     permissions:
       contents: read
     uses: crystal-nest/.github/.github/workflows/version_validation.yml@main
@@ -22,22 +22,22 @@ jobs:
       disable_checks: ${{ github.event.inputs.disable_checks }}
     secrets: inherit
 
-  call-build:
-    needs: call-version-validation
+  build:
+    needs: version-validation
     permissions:
       contents: read
     uses: ./.github/workflows/build.yml
     secrets: inherit
 
-  call-test:
-    needs: call-build
+  test:
+    needs: build
     permissions:
       contents: read
     uses: ./.github/workflows/test.yml
     secrets: inherit
 
-  call-verify:
-    needs: call-test
+  verify:
+    needs: test
     permissions:
       contents: read
     uses: ./.github/workflows/verify.yml
