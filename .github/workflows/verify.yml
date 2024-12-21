@@ -1,0 +1,31 @@
+name: Verify
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  verify_code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build
+      - uses: ./.github/workflows/build.yml
+
+      - name: Run Prospector
+        run: prospector src
+
+  # verify_scalene:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout Code
+  #     - uses: actions/checkout@v4
+
+  #     - name: Set up Python
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.12.7'
+  #         cache: 'pip'
+  #     - run: pip install -r requirements.txt
+
+  #     - name: Run Scalene Profiler
+  #       run: python ./dyn_analysis/check_scalene.py --path=./dyn_analysis/dyn_analysis_sim.py --cpu_th=99 --mem_th=150

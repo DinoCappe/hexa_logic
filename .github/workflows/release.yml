@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: Version number
+        required: true
+      disable_checks:
+        type: boolean
+        description: Disable version consistency checks
+        default: false
+
+jobs:
+  call-version-validation-workflow:
+    permissions:
+      contents: read
+    uses: crystal-nest/.github/.github/workflows/version_validation.yml@main
+    with:
+      version: ${{ github.event.inputs.version }}
+      disable_checks: ${{ github.event.inputs.disable_checks }}
+    secrets: inherit
+
+  call-build-workflow:
+    needs: call-version-validation-workflow
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  call-test-workflow:
+    needs: call-build-workflow
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  call-verify-workflow:
+    needs: call-test-workflow
+    permissions:
+      contents: read
+    uses: ./.github/workflows/verify.yml
+    secrets: inherit

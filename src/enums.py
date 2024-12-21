@@ -179,7 +179,7 @@ class GameType(Flag):
   Game type.  
   Determines the available pieces.
   """
-  Base = auto()
+  BASE = auto()
   """
   Base GameType, without expansions.
   """
@@ -209,16 +209,20 @@ class GameType(Flag):
     :rtype: GameType
     """
     if game_type:
-      base, *expansions = game_type.split("+")
+      base, *expansions = game_type.upper().split("+")
       try:
-        if GameType[base] != GameType.Base or expansions == [""] or len(expansions) > 1 and game_type.find("+") >= 0: raise KeyError()
+        if GameType[base] != GameType.BASE or expansions == [""] or len(expansions) > 1 and game_type.find("+") >= 0: raise KeyError()
         return reduce(lambda type, expansion: type | expansion, [GameType[expansion] for expansion in (expansions[0] if expansions else "")], GameType[base])
       except KeyError as e:
         raise ValueError(f"'{game_type}' is not a valid GameType") from e
-    return GameType.Base
+    return GameType.BASE
+
+  @property
+  def name(self) -> str | None:
+    return self._name_ and self._name_.title()
 
   def __str__(self) -> str:
-    return "".join(str(gametype.name) + ("+" if gametype is GameType.Base and len(self) > 1 else "") for gametype in self)
+    return "".join(str(gametype.name) + ("+" if gametype is GameType.BASE and len(self) > 1 else "") for gametype in self)
 
 class BugType(StrEnum):
   """

@@ -1,7 +1,8 @@
-.vscode/*
+.vscode
 !.vscode/settings.json
 !.vscode/extensions.json
-/src/__pycache__
-/build
-*.spec
-docs\build\html\.buildinfo.bak
+/**/*__pycache__
+.pytest_cache
+dist
+build
+docs/build/**/*

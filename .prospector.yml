@@ -1,0 +1,41 @@
+# .prospector.yml
+
+output-format: grouped
+
+strictness: veryhigh
+# tools:
+#   pylint:
+#     enabled: true
+#     profile: custom
+
+pylint:
+  options:
+    indent-string: '  '
+    indent-after-paren: 2
+    max-line-length: 255
+    max-statements: 100
+    max-nested-blocks: 6
+    max-bool-expr: 8
+    max-locals: 20
+    max-attributes: 10
+    max-complexity: 15
+    max-branches: 15
+  disable:
+    - C0330  # Avoid "bad-continuation" warnings that might be affected by 2-spaces indentation
+    - C0321 # Sometimes rasing an exception in the same line is more readable
+
+pycodestyle:
+  disable:
+    - E111 # Indentation is not a multiple of 4
+    - E114 # Indentation is not a multiple of 4 (for comments)
+    - E121 # Continuation line under-indented for hanging indent
+    - E261 # Inline comments are fine with a single space
+    - E302 # No need for two blank lines between classes
+    - E305 # No need for two blank lines between functions
+    - E501 # Line length is already checked by Pylint
+    - E701 # Sometimes rasing an exception in the same line is more readable
+    - W291 # Disable trailing whitespaces for comments, since they use Markdown
+
+mccabe:
+  options:
+    max-complexity: 15

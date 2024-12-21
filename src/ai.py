@@ -166,10 +166,10 @@ class AlphaBetaPruner(Brain):
     
     minimizing_color = node.current_player_color
     maximizing_color = minimizing_color.opposite
-    valid_moves_maximize=node.calculate_valid_moves_for_player(maximizing_color,True)
-    collision_count_max=node.count_moves_near_queen(maximizing_color)
-    valid_moves_minimize=node.calculate_valid_moves_for_player(minimizing_color)
-    collision_count_min=node.count_moves_near_queen(minimizing_color)
+    valid_moves_maximize = node.calculate_valid_moves_for_player(maximizing_color, True)
+    collision_count_max = node.count_moves_near_queen(maximizing_color)
+    valid_moves_minimize = node.calculate_valid_moves_for_player(minimizing_color)
+    collision_count_min = node.count_moves_near_queen(minimizing_color)
     
     return (node.count_queen_neighbors(minimizing_color) - node.count_queen_neighbors(maximizing_color)) * 20 + (collision_count_max-collision_count_min) * 20 + (len(valid_moves_maximize) - len(valid_moves_minimize)) // 2
 

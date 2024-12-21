@@ -54,7 +54,7 @@ class Board():
     """
     for color in PlayerColor:
       for expansion in self.type:
-        if expansion is GameType.Base:
+        if expansion is GameType.BASE:
           self._bug_to_pos[Bug(color, BugType.QUEEN_BEE)] = None
           # Add ids greater than 0 only for bugs with multiple copies.
           for i in range(1, 3):
@@ -131,20 +131,18 @@ class Board():
           if bug.color is color:
             # Turn 0 is White player's first turn
             if self.turn == 0:
-              # Can't place the queen on the first turn
-              if bug.type is not BugType.QUEEN_BEE and self._can_bug_be_played(bug):
+              if self._can_play_on_first_move(bug):
                 # Add the only valid placement for the current bug piece
                 moves.add(Move(bug, None, self.ORIGIN))
             # Turn 0 is Black player's first turn
             elif self.turn == 1:
-              # Can't place the queen on the first turn
-              if bug.type is not BugType.QUEEN_BEE and self._can_bug_be_played(bug):
+              if self._can_play_on_first_move(bug):
                 # Add all valid placements for the current bug piece (can be placed only around the first White player's first piece)
                 moves.update(Move(bug, None, self._get_neighbor(self.ORIGIN, direction)) for direction in Direction.flat())
             # Bug piece has not been played yet
             elif not pos:
-              # Check hand placement, and turn and queen placement, related rule.
-              if self._can_bug_be_played(bug) and (self.current_player_turn != 4 or (self.current_player_turn == 4 and (self.current_player_queen_in_play or (not self.current_player_queen_in_play and bug.type is BugType.QUEEN_BEE)))):
+              # Check for hand placement and queen placement related rules.
+              if self._can_bug_be_played(bug) and self._check_queen_placement(bug):
                 # Add all valid placements for the current bug piece
                 moves.update(Move(bug, None, placement) for placement in self._get_valid_placements_for_color(color))
             # A bug piece in play can move only if it's at the top and its queen is in play and has not been moved in the previous player's turn
@@ -543,6 +541,28 @@ class Board():
     # If there is only 1 gap, then all neighboring pieces are connected even without the piece at the given position.
     return True
 
+  def _can_play_on_first_move(self, bug: Bug) -> bool:
+    """
+    Checks whether the given bug piece can be played on the current player's first move.
+
+    :param bug: Bug piece.
+    :type bug: Bug
+    :return: Whether the bug piece can be played.
+    :rtype: bool
+    """
+    return bug.type is not BugType.QUEEN_BEE and self._can_bug_be_played(bug)
+
+  def _check_queen_placement(self, bug: Bug) -> bool:
+    """
+    Checks for queen placement related rule.
+
+    :param bug: Bug piece to check.
+    :type bug: Bug
+    :return: Whether the bug piece can be placed.
+    :rtype: bool
+    """
+    return self.current_player_turn != 4 or self.current_player_queen_in_play or bug.type is BugType.QUEEN_BEE
+
   def _can_bug_be_played(self, piece: Bug) -> bool:
     """
     Checks whether the given bug piece can be drawn from hand (has the lowest ID among same-type pieces).
@@ -628,7 +648,7 @@ class Board():
     :rtype: Optional[Position]
     """
     return self._bug_to_pos[bug] if bug in self._bug_to_pos else None
-  
+
   def _get_neighbor(self, position: Position, direction: Direction) -> Position:
     """
     Returns the neighboring position from the given direction.
@@ -651,18 +671,18 @@ class Board():
     :return: Number of moves that reach the enemy queen bee.
     :rtype: int
     """
-    valid_moves=self.calculate_valid_moves_for_player(color,True)
+    valid_moves = self.calculate_valid_moves_for_player(color, True)
     
-    collision_count=0
+    collision_count = 0
     for move in valid_moves:
-      dest=move.destination
+      dest = move.destination
       # Get the neighbouring tiles of the destination
-      neighbours=[self._get_neighbor(dest,direction) for direction in Direction]
+      neighbours = [self._get_neighbor(dest,direction) for direction in Direction]
       # Check if the enemy queen bee is in any of the neighbouring tiles
       for pos in neighbours:
         if pos in self._pos_to_bug:
           for bug in self._pos_to_bug[pos]:
-            if bug.color.opposite==color and bug.type==BugType.QUEEN_BEE:
-              collision_count+=1
+            if bug.color.opposite is color and bug.type is BugType.QUEEN_BEE:
+              collision_count += 1
     
     return collision_count
