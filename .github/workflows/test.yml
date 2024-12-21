@@ -5,14 +5,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  call-build:
+    needs: call-version-validation
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Build
-        uses: ./.github/workflows/build.yml
-
       - name: Unit Tests
         run: pytest test/
