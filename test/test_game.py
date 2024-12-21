@@ -98,7 +98,7 @@ class TestMove():
     origin = Position(1, 1)
     destination = Position(1, 0)
     move = Move(bug, origin, destination)
-    assert str(move) == "wQ, (1, 1), (1, 0)"
+    assert str(move) == "<(1, 1), wQ, (1, 0)>"
 
   def test_hash(self):
     bug = Bug(PlayerColor.WHITE, BugType.QUEEN_BEE)

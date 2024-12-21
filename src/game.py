@@ -103,7 +103,7 @@ class Move():
     self.destination: Final[Position] = destination
 
   def __str__(self) -> str:
-    return f"{self.bug}, {self.origin}, {self.destination}"
+    return f"<{self.origin}, {self.bug}, {self.destination}>"
 
   def __hash__(self) -> int:
     return hash((self.bug, self.origin, self.destination))
