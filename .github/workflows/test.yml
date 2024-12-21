@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build
-      - uses: ./.github/workflows/build.yml
+        uses: ./.github/workflows/build.yml
 
       - name: Unit Tests
         run: pytest test/
