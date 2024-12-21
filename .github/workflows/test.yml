@@ -6,7 +6,6 @@ on:
 
 jobs:
   call-build:
-    needs: call-version-validation
     permissions:
       contents: read
     uses: ./.github/workflows/build.yml
