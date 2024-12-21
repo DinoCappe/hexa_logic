@@ -23,21 +23,21 @@ jobs:
     secrets: inherit
 
   call-build:
-    needs: call-version-validation-workflow
+    needs: call-version-validation
     permissions:
       contents: read
     uses: ./.github/workflows/build.yml
     secrets: inherit
 
   call-test:
-    needs: call-build-workflow
+    needs: call-build
     permissions:
       contents: read
     uses: ./.github/workflows/test.yml
     secrets: inherit
 
   call-verify:
-    needs: call-test-workflow
+    needs: call-test
     permissions:
       contents: read
     uses: ./.github/workflows/verify.yml
