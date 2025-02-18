@@ -33,7 +33,10 @@ class Bug():
   """
   Color code map.
   """
-  REGEX: Final[str] = f"({"|".join(COLORS.keys())})({"|".join(BugType)})(1|2|3)?"
+  colors_regex = "|".join(COLORS.keys())
+  bug_types_regex = "|".join(str(b) for b in BugType)
+
+  REGEX: Final[str] = f"({colors_regex})({bug_types_regex})(1|2|3)?"
   """
   Regex to validate BugStrings.
   """
@@ -60,7 +63,7 @@ class Bug():
     self.id: Final[int] = bug_id
 
   def __str__(self) -> str:
-    return f"{self.color.code}{self.type}{self.id if self.id else ""}"
+    return f"{self.color.code}{self.type}{self.id if self.id else ''}"
 
   def __hash__(self) -> int:
     return hash(str(self))
@@ -76,7 +79,10 @@ class Move():
   """
   Pass move.
   """
-  REGEX = f"({Bug.REGEX})( ?({"|".join(f"\\{d}" for d in Direction.flat_left())})?({Bug.REGEX})({"|".join(f"\\{d}" for d in Direction.flat_right())})?)?"
+  left_directions = "|".join("\\" + str(d) for d in Direction.flat_left())
+  right_directions = "|".join("\\" + str(d) for d in Direction.flat_right())
+
+  REGEX = f"({Bug.REGEX})( ?({left_directions})?({Bug.REGEX})({right_directions})?)?"
   """
   MoveString regex.
   """
@@ -95,7 +101,7 @@ class Move():
     :return: MoveString.
     :rtype: str
     """
-    return f"{moved} {direction if direction and direction.is_left else ""}{relative}{direction if direction and direction.is_right else ""}" if relative else f"{moved}"
+    return f"{moved} {direction if direction and direction.is_left else ''}{relative}{direction if direction and direction.is_right else ''}" if relative else f"{moved}"
 
   def __init__(self, bug: Bug, origin: Optional[Position], destination: Position) -> None:
     self.bug: Final[Bug] = bug

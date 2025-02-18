@@ -29,13 +29,3 @@ class Random(Brain):
       self._cache = choice(board.valid_moves.split(";"))
     sleep(0.5)
     return self._cache
-
-class AlphaBetaPruner(Brain):
-  """
-  AI agent following a custom alpha-beta pruning policy.
-  """
-
-  def calculate_best_move(self, board: Board) -> str:
-    if not self._cache:
-      self._cache = choice(board.valid_moves.split(";"))
-    return self._cache

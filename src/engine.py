@@ -2,8 +2,9 @@ from typing import TypeGuard, Final, Optional
 from enums import Command
 from board import Board
 from game import Move
-from ai import Brain, Random
+from ai import Brain #, Random
 from copy import deepcopy
+from mcts import MCTSBrain
 
 class Engine():
   VERSION: Final[str] = "1.1.0"
@@ -13,7 +14,8 @@ Engine version.
 
   def __init__(self) -> None:
     self.board: Optional[Board] = None
-    self.brain: Brain = Random() # TODO: Could the brain type be chosen with Options?
+    # self.brain: Brain = Random()
+    self.brain: Brain = MCTSBrain(iterations=1000)
 
   def start(self) -> None:
     """
@@ -28,7 +30,7 @@ Engine version.
         case [Command.HELP, *arguments]:
           self.help(arguments)
         case [Command.OPTIONS]:
-          pass # TODO: Could the brain type be chosen with Options?
+          pass
         case [Command.NEWGAME, *arguments]:
           self.newgame(arguments)
         case [Command.VALIDMOVES]:

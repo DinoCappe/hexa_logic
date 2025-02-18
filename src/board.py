@@ -137,7 +137,7 @@ class Board():
         elif white_queen_surrounded:
           self.state = GameState.BLACK_WINS
     else:
-      raise ValueError(f"You can't {"play" if move else Move.PASS} when the game is over")
+      raise ValueError(f"You can't {'play' if move else Move.PASS} when the game is over")
 
   def undo(self, amount: int = 1) -> None:
     """
@@ -566,7 +566,13 @@ class Board():
       if not left_dir or not right_dir:
         moved = Bug.parse(bug_string_1)
         if (relative_pos := self._pos_from_bug(Bug.parse(bug_string_2)) if bug_string_2 else self.ORIGIN):
-          move = Move(moved, self._pos_from_bug(moved), self._get_neighbor(relative_pos, Direction(f"{left_dir}|") if left_dir else Direction(f"|{right_dir or ""}")))
+          if left_dir:
+              dir_str = f"{left_dir}|"
+          else:
+              dir_str = f"|{right_dir}" if right_dir else ""
+          direction = Direction(dir_str)
+          move = Move(moved, self._pos_from_bug(moved), self._get_neighbor(relative_pos, direction))
+
           if move in self._get_valid_moves():
             return move
           raise ValueError(f"'{move_string}' is not a valid move for the current board state")
