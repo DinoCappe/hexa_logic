@@ -2,6 +2,8 @@ from typing import Final, Optional, Set
 from enums import GameType, GameState, PlayerColor, BugType, Direction
 from game import Position, Bug, Move
 import re
+import numpy as np
+from numpy.typing import NDArray
 
 class Board():
   """
@@ -192,6 +194,59 @@ class Board():
             break
       return Move.stringify(moved, relative, direction)
     return Move.PASS
+
+  def encode_board(self, grid_size: int = 26) -> NDArray[np.int32]:
+      """
+      Encodes the current board state into a 4-plane numpy array.
+      
+      Planes:
+        - Plane 0: Binary plane for White queen (1 if present, 0 otherwise).
+        - Plane 1: Binary plane for Black queen.
+        - Plane 2: White non-queen pieces with integer values (1 to 7).
+        - Plane 3: Black non-queen pieces with integer values (1 to 7).
+      
+      The board's origin (0,0) is mapped to the center of the grid.
+      
+      :param board: The current game board.
+      :param grid_size: The size of the grid along one dimension.
+      :return: A numpy array of shape (4, grid_size, grid_size) representing the board.
+      """
+      N = grid_size
+      offset = N // 2
+
+      encoding = np.zeros((4, N, N), dtype=np.int32)
+      
+      nonqueen_mapping = {
+      "A": 1,  # Soldier Ant
+      "G": 2,  # Grasshopper
+      "B": 3,  # Beetle
+      "S": 4,  # Spider
+      "M": 5,  # Mosquito
+      "L": 6,  # Ladybug
+      "P": 7   # Pillbug
+      }
+
+      for pos, bugs in self._pos_to_bug.items():
+          i = pos.q + offset
+          j = pos.r + offset
+          if i < 0 or i >= N or j < 0 or j >= N:
+              continue  # Skip positions outside our grid.
+          
+          top_bug = bugs[-1]
+          if top_bug.type == BugType.QUEEN_BEE:
+              if top_bug.color == PlayerColor.WHITE:
+                  encoding[0, i, j] = 1
+              else:
+                  encoding[1, i, j] = 1
+          else:
+              bug_code = str(top_bug.type)
+              value = nonqueen_mapping.get(bug_code, 0)
+              if top_bug.color == PlayerColor.WHITE:
+                  encoding[2, i, j] = value
+              else:
+                  encoding[3, i, j] = value
+
+      return encoding
 
   def _parse_turn(self, turn: str) -> int:
     """
