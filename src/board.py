@@ -227,25 +227,27 @@ class Board():
       }
 
       for pos, bugs in self._pos_to_bug.items():
-          i = pos.q + offset
-          j = pos.r + offset
-          if i < 0 or i >= N or j < 0 or j >= N:
-              continue  # Skip positions outside our grid.
-          
-          top_bug = bugs[-1]
-          if top_bug.type == BugType.QUEEN_BEE:
-              if top_bug.color == PlayerColor.WHITE:
-                  encoding[0, i, j] = 1
-              else:
-                  encoding[1, i, j] = 1
-          else:
-              bug_code = str(top_bug.type)
-              value = nonqueen_mapping.get(bug_code, 0)
-              if top_bug.color == PlayerColor.WHITE:
-                  encoding[2, i, j] = value
-              else:
-                  encoding[3, i, j] = value
-
+        if not bugs:
+            continue
+        i = pos.q + offset
+        j = pos.r + offset
+        if i < 0 or i >= N or j < 0 or j >= N:
+            continue  # Skip positions outside our grid.
+        
+        top_bug = bugs[-1]
+        if top_bug.type == BugType.QUEEN_BEE:
+            if top_bug.color == PlayerColor.WHITE:
+                encoding[0, i, j] = 1
+            else:
+                encoding[1, i, j] = 1
+        else:
+            bug_code = str(top_bug.type)
+            value = nonqueen_mapping.get(bug_code, 0)
+            if top_bug.color == PlayerColor.WHITE:
+                encoding[2, i, j] = value
+            else:
+                encoding[3, i, j] = value
+                
       return encoding
 
   def _parse_turn(self, turn: str) -> int:

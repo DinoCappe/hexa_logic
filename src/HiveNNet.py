@@ -1,9 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from utils import dotdict
 from board import Board
+import torch.optim as optim
+import numpy as np
+from numpy.typing import NDArray
+import random
 
 class NNetWrapper:
     def __init__(self, board_size: tuple[int, int], action_size: int, args: dotdict):
@@ -44,6 +47,67 @@ class NNetWrapper:
         
         # Return probabilities (by exponentiating the log probabilities) and value.
         return torch.exp(pi).detach().cpu().numpy()[0], v.detach().cpu().numpy()[0]  # type: ignore
+    
+    def train(self, examples: list[tuple[Board, NDArray[np.float64], float]]):
+        """
+        Train the network on a set of examples.
+        
+        Each example is a tuple:
+            (board, target_policy, target_value)
+        where:
+            board: a Board object,
+            target_policy: a vector of move probabilities (numpy array, shape (action_size,)),
+            target_value: a scalar value.
+        
+        This method uses Adam optimizer and trains for a fixed number of epochs.
+        """
+        optimizer = optim.Adam(self.nnet.parameters(), lr=self.args['lr'])
+        batch_size = self.args['batch_size']
+        epochs = self.args['epochs']
+        
+        self.nnet.train()
+        
+        for epoch in range(epochs):
+            print(f"Epoch {epoch+1}/{epochs}")
+            # Shuffle examples
+            random.shuffle(examples)
+            batch_count = len(examples) // batch_size
+            epoch_loss_pi = 0.0
+            epoch_loss_v = 0.0
+            
+            for i in range(batch_count):
+                batch = examples[i * batch_size:(i + 1) * batch_size]
+                batch_boards, batch_pis, batch_vs = zip(*batch)
+                
+                # Encode each board using its encode_board method.
+                # Ensure each encoded board has shape (4, board_size, board_size)
+                encoded_boards = [board.encode_board(grid_size=self.board_size[0]) for board in batch_boards]
+                boards_tensor = torch.FloatTensor(np.array(encoded_boards))
+                target_pis = torch.FloatTensor(np.array(batch_pis))
+                target_vs = torch.FloatTensor(np.array(batch_vs))
+                
+                if self.args['cuda']:
+                    boards_tensor = boards_tensor.cuda()
+                    target_pis = target_pis.cuda()
+                    target_vs = target_vs.cuda()
+                
+                out_pi, out_v = self.nnet(boards_tensor)
+                # Compute policy loss: negative log likelihood (cross entropy)
+                loss_pi = -torch.sum(target_pis * out_pi) / target_pis.size(0)
+                # Compute value loss: Mean squared error
+                loss_v = torch.sum((target_vs - out_v.view(-1)) ** 2) / target_vs.size(0)
+                total_loss = loss_pi + loss_v
+                
+                optimizer.zero_grad()
+                total_loss.backward() # type: ignore
+                optimizer.step() # type: ignore
+                
+                epoch_loss_pi += loss_pi.item()
+                epoch_loss_v += loss_v.item()
+            
+            avg_loss_pi = epoch_loss_pi / batch_count if batch_count > 0 else float('nan')
+            avg_loss_v = epoch_loss_v / batch_count if batch_count > 0 else float('nan')
+            print(f"Epoch {epoch+1}: Policy Loss = {avg_loss_pi:.4f}, Value Loss = {avg_loss_v:.4f}")
 
 
 class HiveNNet(nn.Module):
@@ -130,33 +194,3 @@ class HiveNNet(nn.Module):
         v = torch.tanh(v)
         
         return pi, v
-
-
-# Example usage:
-if __name__ == "__main__":
-    board_size = (14, 14)
-    action_size = 100  # Replace with your actual action count.
-    
-    args = dotdict({
-    'lr': 0.001,
-    'dropout': 0.3,
-    'epochs': 10,
-    'batch_size': 64,
-    'cuda': torch.cuda.is_available(),
-    'num_channels': 256,
-    'num_layers': 4
-    })
-    
-    # Instantiate the network wrapper.
-    nnet_wrapper = NNetWrapper(board_size, action_size, args)
-    
-    dummy_board = Board()
-    dummy_encoded_board = np.zeros((4, board_size[0], board_size[1]), dtype=np.int32)
-    
-    # For testing, we'll mimic predict() by using our dummy board encoding.
-    try:
-        pi, v = nnet_wrapper.predict(dummy_board)
-        print("Policy output shape:", pi.shape)
-        print("Value output shape:", v.shape)
-    except Exception as e:
-        print("Error during prediction:", e)
