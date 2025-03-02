@@ -1,18 +1,11 @@
 import torch
 from utils import dotdict
-from board import Board
-from enums import GameState
-from mcts import MCTSBrain
+from coach import Coach
 from HiveNNet import NNetWrapper
+from coach import GameWrapper
 
-def play_full_game():
-    board = Board()
-    print("Initial board:")
-    print(board)
-    
-    board_size = (14, 14)
-    action_size = 100
-    
+def main():
+    # Define hyperparameters and configuration.
     args = dotdict({
         'lr': 0.001,
         'dropout': 0.3,
@@ -21,31 +14,31 @@ def play_full_game():
         'cuda': torch.cuda.is_available(),
         'num_channels': 256,
         'num_layers': 4,
-        'results': 'experiment_results'
+        'mcts_iterations': 100,         # Lower number for testing
+        'exploration_constant': 1.41,
+        'numEps': 1,                    # Number of self-play games per iteration
+        'maxlenOfQueue': 2000,          # Maximum self-play examples to keep in history
+        'tempThreshold': 10,            # Temperature threshold for move selection
+        'numIters': 2,                  # Number of overall training iterations for testing
+        'numItersForTrainExamplesHistory': 20,
+        'checkpoint': 'checkpoint_dir'
     })
     
+    board_size = (14, 14)
+    action_size = 100
+    
+    game = GameWrapper()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
-    mcts = MCTSBrain(nnet_wrapper, iterations=100, exploration_constant=1.41)
+    coach = Coach(game, nnet_wrapper, args)
     
-    move_count = 0
-    max_moves = 20  # Set a limit to prevent infinite loops during testing.
+    # Run a single self-play episode to generate training examples.
+    train_examples = coach.executeEpisode()
+    print(f"Self-play episode generated {len(train_examples)} training examples.")
     
-    while board.state in [GameState.NOT_STARTED, GameState.IN_PROGRESS] and move_count < max_moves:
-        if board.state == GameState.NOT_STARTED:
-            valid_moves = board.valid_moves.split(";")
-            if valid_moves:
-                board.play(valid_moves[0])
-                print("\nBoard after initial move:")
-                print(board)
-        else:
-            best_move = mcts.calculate_best_move(board)
-            print(f"\nBest move found at move {move_count+1}: {best_move}")
-            board.play(best_move)
-            move_count += 1
-            print(f"\nBoard after move {move_count}:")
-            print(board)
-            print("Valid moves:", board.valid_moves)
-    print("\nGame ended with state:", board.state)
+    # Now, run the integrated learning loop for a couple of iterations.
+    print("Starting integrated learning loop...")
+    coach.learn()
+    print("Learning loop finished.")
 
 if __name__ == "__main__":
-    play_full_game()
+    main()

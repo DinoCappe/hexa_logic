@@ -68,3 +68,5 @@ pytorch=2.5.1=py3.11_cpu_0
 pytorch-mutex=1.0=cpu
 torchaudio=2.5.1=py311_cpu
 torchvision=0.20.1=py311_cpu
+tqdm=4.67.1=pypi_0
+
