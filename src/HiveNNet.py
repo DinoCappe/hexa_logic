@@ -7,6 +7,7 @@ import torch.optim as optim
 import numpy as np
 from numpy.typing import NDArray
 import random
+import os
 
 class NNetWrapper:
     def __init__(self, board_size: tuple[int, int], action_size: int, args: dotdict):
@@ -45,10 +46,9 @@ class NNetWrapper:
         with torch.no_grad():
             pi, v = self.nnet(input_tensor)
         
-        # Return probabilities (by exponentiating the log probabilities) and value.
         return torch.exp(pi).detach().cpu().numpy()[0], v.detach().cpu().numpy()[0]  # type: ignore
     
-    def train(self, examples: list[tuple[Board, NDArray[np.float64], float]]):
+    def train(self, examples: list[tuple[NDArray[np.float64], NDArray[np.float64], float]]):
         """
         Train the network on a set of examples.
         
@@ -109,10 +109,29 @@ class NNetWrapper:
             avg_loss_v = epoch_loss_v / batch_count if batch_count > 0 else float('nan')
             print(f"Epoch {epoch+1}: Policy Loss = {avg_loss_pi:.4f}, Value Loss = {avg_loss_v:.4f}")
 
+    def save_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
+        filepath = os.path.join(folder, filename)
+        if not os.path.exists(folder):
+            print("Checkpoint Directory does not exist! Making directory {}".format(folder))
+            os.mkdir(folder)
+        else:
+            print("Checkpoint Directory exists!")
+        torch.save({ # type: ignore
+            'state_dict': self.nnet.state_dict(),
+        }, filepath)
+
+    def load_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
+        filepath = os.path.join(folder, filename)
+        if not os.path.exists(filepath):
+            raise Exception("No model in path {}".format(filepath))
+        map_location = None if self.args.cuda else 'cpu'
+        checkpoint = torch.load(filepath, map_location=map_location) # type: ignore
+        self.nnet.load_state_dict(checkpoint['state_dict'])
+
 
 class HiveNNet(nn.Module):
     def __init__(self, board_size: tuple[int, int], action_size: int, 
-                 num_channels: int=256, num_layers: int=4, dropout: float=0.3):
+                 num_channels: int=256, num_layers: int=8, dropout: float=0.3):
         """
         Args:
             board_size (tuple): (board_x, board_y) dimensions.
@@ -128,18 +147,21 @@ class HiveNNet(nn.Module):
         self.num_layers = num_layers
         self.dropout = dropout
         
-        # Set input channels based on the chosen representation.
         in_channels = 4
 
         # First convolutional layer.
         self.conv1 = nn.Conv2d(in_channels, self.num_channels, kernel_size=3, stride=1, padding=1)
         self.bn1 = nn.BatchNorm2d(self.num_channels)
+
+        # Second convolutional layer.
+        self.conv2 = nn.Conv2d(in_channels, self.num_channels, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(self.num_channels)
         
         # Additional convolutional layers.
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
-        for i in range(1, self.num_layers):
-            self.convs.append(nn.Conv2d(self.num_channels, self.num_channels, kernel_size=3, stride=1, padding=1))
+        for _i in range(2, self.num_layers):
+            self.convs.append(nn.Conv2d(self.num_channels, self.num_channels, kernel_size=3, stride=1))
             self.bns.append(nn.BatchNorm2d(self.num_channels))
         
         # Here we assume no change in spatial dimensions (stride=1, padding=1).
@@ -167,12 +189,12 @@ class HiveNNet(nn.Module):
             (pi, v): where pi is the log-softmax over actions and v is the board value.
         """
         batch_size = s.size(0)
-        
         in_channels = 4
         s = s.view(batch_size, in_channels, self.board_x, self.board_y)
         
         # Convolutional layers.
         s = F.relu(self.bn1(self.conv1(s)))
+        s = F.relu(self.bn2(self.conv2(s)))
         for conv, bn in zip(self.convs, self.bns):
             s = F.relu(bn(conv(s)))
         

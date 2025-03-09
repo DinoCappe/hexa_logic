@@ -13,7 +13,7 @@ def main():
         'batch_size': 64,
         'cuda': torch.cuda.is_available(),
         'num_channels': 256,
-        'num_layers': 4,
+        'num_layers': 8,
         'mcts_iterations': 100,         # Lower number for testing
         'exploration_constant': 1.41,
         'numEps': 1,                    # Number of self-play games per iteration
@@ -21,13 +21,14 @@ def main():
         'tempThreshold': 10,            # Temperature threshold for move selection
         'numIters': 2,                  # Number of overall training iterations for testing
         'numItersForTrainExamplesHistory': 20,
-        'checkpoint': 'checkpoint_dir'
+        'checkpoint': 'checkpoints',
+        'results': 'results'
     })
     
     board_size = (14, 14)
-    action_size = 100
     
     game = GameWrapper()
+    action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
     coach = Coach(game, nnet_wrapper, args)
     

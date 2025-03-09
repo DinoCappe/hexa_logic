@@ -4,6 +4,7 @@ from game import Position, Bug, Move
 import re
 import numpy as np
 from numpy.typing import NDArray
+from copy import deepcopy
 
 class Board():
   """
@@ -195,7 +196,7 @@ class Board():
       return Move.stringify(moved, relative, direction)
     return Move.PASS
 
-  def encode_board(self, grid_size: int = 26) -> NDArray[np.int32]:
+  def encode_board(self, grid_size: int = 26) -> NDArray[np.int64]:
       """
       Encodes the current board state into a 4-plane numpy array.
       
@@ -214,7 +215,7 @@ class Board():
       N = grid_size
       offset = N // 2
 
-      encoding = np.zeros((4, N, N), dtype=np.int32)
+      encoding = np.zeros((4, N, N), dtype=np.int64)
       
       nonqueen_mapping = {
       "A": 1,  # Soldier Ant
@@ -249,6 +250,74 @@ class Board():
                 encoding[3, i, j] = value
                 
       return encoding
+  
+  def invert_colors(self) -> 'Board':
+    new_board: Board = deepcopy(self)
+    new_board._bug_to_pos = {bug.invert_color(): pos for bug, pos in self._bug_to_pos.items()}
+    new_board._pos_to_bug = {pos: [bug.invert_color() for bug in bugs] for pos, bugs in self._pos_to_bug.items()}
+    return new_board
+
+  def rotate_board_60(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
+      rot_board = np.rot90(board, -1)
+      height, width = board.shape
+      midway = height // 2 - 1
+
+      nonzero_after = [x + (y - midway) for y, x in zip(*np.nonzero(rot_board))]
+      if nonzero_after:
+          midway_before = width // 2 - 1
+          midway_after = (min(nonzero_after) + max(nonzero_after)) // 2
+          center_shift = midway_before - midway_after
+          rot_board = np.roll(rot_board, center_shift, axis=1)
+
+      rotated = np.array([np.roll(row, row_number - midway) for row_number, row in enumerate(rot_board)])
+      return rotated.astype(np.float64)
+
+  def reflect_board_vertically(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
+      """
+      Reflects (flips) a 2D numpy array vertically.
+      This is done by flipping the array using np.flipud, then shifting rows
+      to restore the board’s structure.
+      
+      Args:
+          board: A 2D numpy array.
+      
+      Returns:
+          A 2D numpy array of the reflected board.
+      """
+      flipped_board = np.flipud(board)
+      height, _ = board.shape
+      midway = height // 2
+      reflected = np.array([np.roll(row, row_number - midway) for row_number, row in enumerate(flipped_board)])
+      return reflected
+
+  def rotate_pi_60(self, pi_board: NDArray[np.float64]) -> NDArray[np.float64]:
+      """
+      Rotates a 2D policy board (a numpy array) by 60 degrees.
+      This implementation simply applies the same transformation as rotate_board_60,
+      under the assumption that the policy board has a compatible spatial layout.
+      
+      Args:
+          pi_board: A 2D numpy array representing the spatial part of the policy.
+      
+      Returns:
+          The rotated policy board as a 2D numpy array.
+      """
+      # For simplicity, apply the same transformation as for the board.
+      return self.rotate_board_60(pi_board.astype(np.float64)).astype(np.float64)
+
+  def reflect_pi_vertically(self, pi_board: NDArray[np.float64]) -> NDArray[np.float64]:
+      """
+      Reflects a 2D policy board (a numpy array) vertically.
+      This implementation applies the same transformation as reflect_board_vertically,
+      assuming that the policy board shares the same structure.
+      
+      Args:
+          pi_board: A 2D numpy array representing the spatial part of the policy.
+      
+      Returns:
+          The reflected policy board as a 2D numpy array.
+      """
+      return self.reflect_board_vertically(pi_board.astype(np.float64)).astype(np.float64)
 
   def _parse_turn(self, turn: str) -> int:
     """

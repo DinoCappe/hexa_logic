@@ -62,6 +62,13 @@ class Bug():
     self.type: Final[BugType] = bug_type
     self.id: Final[int] = bug_id
 
+  def invert_color(self) -> 'Bug':
+    """
+    Returns a new Bug instance with the color inverted.
+    """
+    new_color = PlayerColor.BLACK if self.color == PlayerColor.WHITE else PlayerColor.WHITE
+    return Bug(new_color, self.type, self.id)
+
   def __str__(self) -> str:
     return f"{self.color.code}{self.type}{self.id if self.id else ''}"
 
