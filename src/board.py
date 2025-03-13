@@ -5,6 +5,10 @@ import re
 import numpy as np
 from numpy.typing import NDArray
 from copy import deepcopy
+import dictionaries
+
+ACTION_SPACE_SHAPE = (22, 7, 14)
+ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
 
 class Board():
   """
@@ -250,6 +254,134 @@ class Board():
                 encoding[3, i, j] = value
                 
       return encoding
+  
+  def encode_move_string(self, move_str: str, player: int, simple: bool = False) -> int:
+    """
+    Converts a move string (using BoardSpace notation) into an action index
+    in the tile-relative action space.
+    
+    The action space is defined as (22, 7, 14) in full mode, with one extra index
+    reserved for "pass". In non-simple mode, the index is computed as:
+      index = (TILE_DIM * NUM_DIRECTIONS * next_to_encoding)
+            + (TILE_DIM * direction_encoding)
+            + tile_encoding
+    where:
+      - TILE_DIM = 14 (number of distinct tile codes)
+      - NUM_DIRECTIONS = 7 (0–5 from explicit symbols plus 6 for stacking)
+    
+    Args:
+        move_str: The move string, e.g.:
+                  - "wB1 wS1" for a stacking move (beetle moves on top of spider)
+                  - "bS1 wS1/" for a move with an explicit suffix direction indicator
+                  - "wS1" for the first move.
+        player: The player making the move (0 for dark, 1 for light).
+        simple: If True, use simplified encoding (ignoring direction).
+    
+    Returns:
+        An integer index in the range [0, ACTION_SPACE_SIZE] where ACTION_SPACE_SIZE = 22*7*14.
+    """
+    # If the move is "pass", return the reserved index.
+    if move_str.strip().lower() == "pass":
+        return int(22 * 7 * 14)
+    
+    parts = move_str.split()
+    
+    if len(parts) == 1:
+        # First move case: only a piece's short name is given.
+        moving_piece = parts[0]  # e.g., "wS1"
+        tile_encoding = dictionaries.TILE_DICT_CANONICAL.get(moving_piece, 0)
+        next_to_encoding = 0  # default value
+        direction_encoding = 0  # default direction
+    elif len(parts) == 2:
+        moving_piece = parts[0]      # e.g., "wB1"
+        destination = parts[1]         # e.g., "wS1/" or "wS1"
+        tile_encoding = dictionaries.TILE_DICT_CANONICAL.get(moving_piece, 0)
+        # Check if the destination contains an explicit direction indicator.
+        if destination[0] in dictionaries.DIRECTION_MAP_PREFIX:
+            direction_encoding = dictionaries.DIRECTION_MAP_PREFIX[destination[0]]
+            neighbor_str = destination[1:]
+        elif destination[-1] in dictionaries.DIRECTION_MAP_SUFFIX:
+            direction_encoding = dictionaries.DIRECTION_MAP_SUFFIX[destination[-1]]
+            neighbor_str = destination[:-1]
+        else:
+            # No explicit indicator => stacking move.
+            direction_encoding = 6
+            neighbor_str = destination
+        # Use the full dictionary to get next_to_encoding.
+        next_to_encoding = dictionaries.TILE_DICT_FULL[player].get(neighbor_str, 0)
+    else:
+        raise ValueError(f"Cannot parse move string: {move_str}")
+    
+    if simple:
+        index = (14 * next_to_encoding) + tile_encoding
+    else:
+        index = (14 * 7 * next_to_encoding) + (14 * direction_encoding) + tile_encoding
+    return int(index)
+  
+  def decode_move_index(self, index: int, player: int, simple: bool = False) -> str:
+    """
+    Decodes an action index (from the fixed tile-relative action space)
+    into a move string in BoardSpace notation.
+    
+    Args:
+        index: An integer in [0, getActionSize()-1]. The last index (2156 if using (22,7,14))
+               corresponds to "pass".
+        player: The player making the move (0 for dark, 1 for light). This determines
+                the prefix for the moving piece and which inverse full dictionary to use for the neighbor.
+        simple: If True, use the simplified decoding (ignoring direction).
+    
+    Returns:
+        A move string in BoardSpace notation.
+    """
+    # Check for pass.
+    ACTION_SPACE_SIZE = 22 * 7 * 14  # 2156
+    if index == ACTION_SPACE_SIZE:
+        return "pass"
+    
+    TILE_DIM = 14
+    NUM_DIRECTIONS = 7
+
+    if simple:
+        next_to_encoding = index // TILE_DIM
+        tile_encoding = index % TILE_DIM
+        direction_encoding = 0
+    else:
+        next_to_encoding = index // (TILE_DIM * NUM_DIRECTIONS)
+        remainder = index % (TILE_DIM * NUM_DIRECTIONS)
+        direction_encoding = remainder // TILE_DIM
+        tile_encoding = remainder % TILE_DIM
+
+    moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "Q")
+    moving_piece = ("b" if player == 0 else "w") + moving_piece_type
+
+    neighbor_piece = dictionaries.INV_TILE_DICT_FULL[player].get(next_to_encoding, "UNKNOWN")
+    
+    if simple:
+        direction_symbol = ""  # no direction in simple mode.
+    else:
+        if direction_encoding == 6:
+            # This indicates a stacking move (jumping on top)
+            direction_symbol = ""
+        elif direction_encoding < 3:
+            direction_symbol = dictionaries.INV_DIRECTION_MAP_PREFIX.get(direction_encoding, "")
+        elif direction_encoding < 6:
+            direction_symbol = dictionaries.INV_DIRECTION_MAP_SUFFIX.get(direction_encoding, "")
+        else:
+            direction_symbol = ""
+    
+    # Place the direction symbol as a prefix if it came from the prefix mapping,
+    # or as a suffix if it came from the suffix mapping.
+    if not simple:
+        if direction_encoding < 3:
+            move_str = f"{moving_piece} {direction_symbol}{neighbor_piece}"
+        elif direction_encoding < 6:
+            move_str = f"{moving_piece} {neighbor_piece}{direction_symbol}"
+        else:
+            move_str = f"{moving_piece} {neighbor_piece}"
+    else:
+        move_str = f"{moving_piece} {neighbor_piece}"
+    
+    return move_str
   
   def invert_colors(self) -> 'Board':
     new_board: Board = deepcopy(self)

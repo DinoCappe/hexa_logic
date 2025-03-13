@@ -15,13 +15,13 @@ from utils import dotdict
 from numpy.typing import NDArray
 from typing import Deque
 from arena import Arena
+from board import ACTION_SPACE_SIZE
 
 log = logging.getLogger(__name__)
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
 
 USE_SYMMETRIES = True
-ACTION_SPACE_SHAPE = (14, 14)
 EXTRA_ACTION = 1  # if your pi vector length is 14*14+1
 
 class GameWrapper:
@@ -128,20 +128,45 @@ class GameWrapper:
         return sym_list
 
     def getActionSize(self) -> int:
-        action_space_shape = (22, 7, 11)  # Tile-relative encoding.
-        action_space_size = np.prod(action_space_shape)
+        action_space_size = ACTION_SPACE_SIZE
         return int(action_space_size + 1)  # +1 for the pass move.
     
+    def stringRepresentation(self, board: Board) -> str:
+        """
+        Returns a hashable string representation that uniquely identifies the current state of the board.
+        
+        This is done by encoding the board into a numpy array (using board.encode_board),
+        flattening that array, and joining its elements into a string separated by colons.
+        
+        Adjust the grid_size as needed.
+        """
+        board_array = board.encode_board(grid_size=14)
+        board_as_string = ":".join(board_array.astype(str).flatten().tolist())
+        return board_as_string
+
     def getValidMoves(self, board: Board, player: int) -> NDArray[np.float64]:
         """
-        Returns a binary vector of valid moves.
+        Returns a binary vector of length getActionSize() indicating which moves
+        in the fixed tile-relative action space are valid.
+        
+        For each move string produced by board.valid_moves (a semicolon-separated string),
+        we use our encode_move_string function to map it to an index.
+        If no moves are valid, we mark the "pass" move as valid.
         """
-        valid_moves = board.valid_moves.split(";")
         action_size = self.getActionSize()
         valid = np.zeros(action_size, dtype=np.float64)
-        for i, move in enumerate(valid_moves):
+        valid_moves = board.valid_moves.split(";")
+        # Iterate over each valid move and set the corresponding index to 1.0.
+        for move in valid_moves:
             if move:
-                valid[i] = 1.0
+                try:
+                    idx = board.encode_move_string(move, player, simple=False)
+                    valid[idx] = 1.0
+                except Exception as e:
+                    print(f"Warning: Unable to encode move '{move}': {e}")
+        # If no move was marked valid, mark the pass move (the last index) as valid.
+        if np.sum(valid) == 0:
+            valid[-1] = 1.0
         return valid
 
 class Coach:
@@ -155,7 +180,7 @@ class Coach:
         self.pnet = self.nnet  
         self.args = args
 
-        self.mcts = MCTSBrain(self.nnet, iterations=args.mcts_iterations, exploration_constant=args.exploration_constant)
+        self.mcts = MCTSBrain(self.game, self.nnet, self.args)
         self.trainExamplesHistory: List[deque[TrainingExample]] = []  
         self.numEps = args.numEps  
         self.maxlenOfQueue = args.maxlenOfQueue  
@@ -196,7 +221,7 @@ class Coach:
         model_iteration = 1
 
         # Evaluate initial performance against a random baseline.
-        nmcts = MCTSBrain(self.nnet, iterations=self.args.mcts_iterations, exploration_constant=self.args.exploration_constant)
+        nmcts = MCTSBrain(self.game, self.nnet, self.args)
         arena = Arena(lambda x: self.args.random_move_baseline(x),
                       lambda x: int(np.argmax(nmcts.getActionProb(x, temp=0))),
                       self.game)
@@ -211,7 +236,7 @@ class Coach:
             iterationTrainExamples: Deque[TrainingExample] = deque([], maxlen=self.maxlenOfQueue)
             for _ in tqdm(range(self.numEps), desc="Self-play episodes"):
                 # Reset MCTS for each self-play game.
-                self.mcts = MCTSBrain(self.nnet, iterations=self.args.mcts_iterations, exploration_constant=self.args.exploration_constant)
+                self.mcts = MCTSBrain(self.game, self.nnet, self.args)
                 examples = self.executeEpisode()
                 iterationTrainExamples.extend(examples)
             self.trainExamplesHistory.append(iterationTrainExamples)
@@ -229,10 +254,10 @@ class Coach:
             
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTSBrain(self.pnet, iterations=self.args.mcts_iterations, exploration_constant=self.args.exploration_constant)
+            pmcts = MCTSBrain(self.game, self.nnet, self.args)
             
             self.nnet.train(converted_examples)
-            nmcts = MCTSBrain(self.nnet, iterations=self.args.mcts_iterations, exploration_constant=self.args.exploration_constant)
+            nmcts = MCTSBrain(self.game, self.nnet, self.args)
             
             logging.info('PITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: int(np.argmax(pmcts.getActionProb(x, temp=0))),

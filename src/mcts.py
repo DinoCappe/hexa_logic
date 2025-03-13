@@ -1,200 +1,131 @@
 import math
 import numpy as np
-from copy import deepcopy
-from typing import Optional, Dict
-from board import Board
-from enums import GameState, PlayerColor
-from ai import Brain
-from game import Move
-from HiveNNet import NNetWrapper
+from typing import Dict, Tuple
 from numpy.typing import NDArray
+from board import Board
+from ai import Brain
+from coach import GameWrapper
+from HiveNNet import NNetWrapper
+from utils import dotdict
+from enums import PlayerColor
+
+EPS = 1e-8
 
 class MCTSBrain(Brain):
     """
-    An MCTS-based AI agent that integrates a neural network for guiding search.
+    Dictionary-based MCTS that caches Q-values, visit counts, 
+    neural network policies, and valid moves for states.
     """
-    def __init__(self, nnet_wrapper: NNetWrapper, iterations: int = 1000, exploration_constant: float = 1.41) -> None:
-        super().__init__()
-        self.iterations = iterations
-        self.C = exploration_constant
-        self.nnet_wrapper = nnet_wrapper
-
-    class Node:
+    def __init__(self, game: GameWrapper, nnet: NNetWrapper, args: dotdict):
         """
-        Node in the MCTS search tree.
+        Args:
+            game: A game interface providing methods like stringRepresentation,
+                  getGameEnded, getValidMoves, getActionSize, getNextState, and getCanonicalForm.
+            nnet: A neural network wrapper with a predict() method.
+            args: A configuration object/dotdict containing hyperparameters.
+                  Must include:
+                      - numMCTSSims: number of MCTS simulations per move
+                      - cpuct: the exploration constant.
         """
-        def __init__(self, board: Board, parent: Optional['MCTSBrain.Node'] = None, move: Optional[str] = None):
-            self.board = board         # The board state at this node.
-            self.parent = parent       # Parent node.
-            self.move = move           # Move that led to this node.
-            self.children: Dict[str, MCTSBrain.Node] = {}
-            self.visits = 0
-            self.wins = 0.0
-            # NN priors: mapping from move string to prior probability.
-            self.priors: Dict[str, float] = {}
+        self.game = game
+        self.nnet = nnet
+        self.args = args
+        self.Qsa: Dict[Tuple[str, int], float] = {}    # Q-values for state-action pairs
+        self.Nsa: Dict[Tuple[str, int], int] = {}        # Visit counts for state-action pairs
+        self.Ns: Dict[str, int] = {}                     # Visit counts for states
+        self.Ps: Dict[str, NDArray[np.float64]] = {}       # Initial NN policy for states
 
-        def is_terminal(self) -> bool:
-            return self.board.state != GameState.IN_PROGRESS and self.board.state != GameState.NOT_STARTED
+        self.Es: Dict[str, float] = {}                   # Game ended status for states
+        self.Vs: Dict[str, NDArray[np.float64]] = {}       # Valid moves for states
 
-        def is_fully_expanded(self) -> bool:
-            valid_moves = [m for m in self.board.valid_moves.split(";") if m]
-            return all(move in self.children for move in valid_moves)
-
+    def getActionProb(self, canonicalBoard: Board, temp: float = 1) -> NDArray[np.float64]:
+        """
+        Performs numMCTSSims simulations starting from canonicalBoard and returns
+        a probability distribution over actions (of length getActionSize()).
+        Temperature temp controls exploration (temp=0 -> deterministic).
+        """
+        for i in range(self.args.numMCTSSims):
+            self.search(canonicalBoard)
+        s = self.game.stringRepresentation(canonicalBoard)
+        counts = [self.Nsa.get((s, a), 0) for a in range(self.game.getActionSize())]
+        if temp == 0:
+            bestAs = np.argwhere(np.array(counts) == np.max(counts)).flatten()
+            bestA = np.random.choice(bestAs)
+            probs = np.zeros(len(counts), dtype=np.float64)
+            probs[bestA] = 1.0
+            return probs
+        counts = [x ** (1.0 / temp) for x in counts]
+        total = float(sum(counts))
+        probs = [x / total for x in counts]
+        return np.array(probs, dtype=np.float64)
+    
     def calculate_best_move(self, board: Board) -> str:
         """
-        Runs MCTS for a fixed number of iterations and returns the best move (as a move string)
-        based on visit counts.
+        Runs MCTS on the given board state and returns the best move as a string.
+        It uses getActionProb with temperature 0 for deterministic selection.
         """
-        root = self.Node(deepcopy(board))
-        root_player = board.current_player_color
+        # Get probability distribution from MCTS (deterministic with temp=0)
+        probs = self.getActionProb(board, temp=0)
+        best_action_index = int(np.argmax(probs))
+        player = 1 if board.current_player_color == PlayerColor.WHITE else 0
+        
+        move_str = board.decode_move_index(best_action_index, player)
+        return move_str
 
-        priors, _ = self.nnet_wrapper.predict(board)
-        valid_moves = board.valid_moves.split(";")
-        for i, move in enumerate(valid_moves):
-            root.priors[move] = priors[i] if i < len(priors) else 0.0
+    def search(self, canonicalBoard: Board) -> float:
+        """
+        Recursively searches from the given canonicalBoard state.
+        Returns the negative value of the state.
+        """
+        s = self.game.stringRepresentation(canonicalBoard)
 
-        for _ in range(self.iterations):
-            node = root
-            simulation_board = deepcopy(board)
+        # If terminal state, return outcome.
+        if s not in self.Es:
+            self.Es[s] = self.game.getGameEnded(canonicalBoard, 1)
+        if self.Es[s] != 0:
+            return -self.Es[s]
 
-            # --- Selection ---
-            while not node.is_terminal() and node.is_fully_expanded():
-                node = self.select_child(node)
-                if node.move is not None:
-                    simulation_board.play(node.move)
-
-            # --- Expansion ---
-            if not node.is_terminal():
-                move = self.untried_move(node)
-                if move is not None:
-                    simulation_board.play(move)
-                    child = self.Node(deepcopy(simulation_board), parent=node, move=move)
-                    child_priors, _ = self.nnet_wrapper.predict(simulation_board)
-                    valid_moves_child = simulation_board.valid_moves.split(";")
-                    for i, mv in enumerate(valid_moves_child):
-                        child.priors[mv] = child_priors[i] if i < len(child_priors) else 0.0
-                    node.children[move] = child
-                    node = child
-
-            # --- Simulation ---
-            if not node.is_terminal():
-                _, value = self.nnet_wrapper.predict(simulation_board)
+        # If state is not in cache, it's a leaf.
+        if s not in self.Ps:
+            # Query the NN for policy and value.
+            self.Ps[s], v = self.nnet.predict(canonicalBoard)
+            valids = self.game.getValidMoves(canonicalBoard, 1)
+            self.Ps[s] = self.Ps[s] * valids  # mask invalid moves
+            sum_Ps = np.sum(self.Ps[s])
+            if sum_Ps > 0:
+                self.Ps[s] /= sum_Ps
             else:
-                if simulation_board.state == GameState.DRAW:
-                    value = 0.5
-                elif ((simulation_board.state == GameState.WHITE_WINS and root_player == PlayerColor.WHITE) or
-                      (simulation_board.state == GameState.BLACK_WINS and root_player == PlayerColor.BLACK)):
-                    value = 1.0
+                # If all valid moves were masked, use uniform probabilities.
+                self.Ps[s] = self.Ps[s] + valids
+                self.Ps[s] /= np.sum(self.Ps[s])
+            self.Vs[s] = valids
+            self.Ns[s] = 0
+            return -v
+
+        # Otherwise, choose the action with highest UCB.
+        valids = self.Vs[s]
+        cur_best = -float('inf')
+        best_a = -1
+        for a in range(self.game.getActionSize()):
+            if valids[a]:
+                if (s, a) in self.Qsa:
+                    u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
                 else:
-                    value = 0.0
+                    u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)
+                if u > cur_best:
+                    cur_best = u
+                    best_a = a
 
-            # --- Backpropagation ---
-            self.backpropagate(node, value)
+        a = best_a
+        next_board, next_player = self.game.getNextState(canonicalBoard, 1, a)
+        next_board = self.game.getCanonicalForm(next_board, next_player)
+        v = self.search(next_board)
 
-        best_move, _ = max(root.children.items(), key=lambda item: item[1].visits)
-        return best_move
-
-    def getActionProb(self, board: Board, temp: float = 1) -> NDArray[np.float64]:
-        """
-        Runs MCTS starting from the given board state and returns a probability distribution
-        over valid moves based on visit counts. Temperature temp adjusts exploration:
-          - temp = 0 selects the move with highest count deterministically.
-          - temp > 0 returns a probability distribution.
-        """
-        root = self.Node(deepcopy(board))
-        root_player = board.current_player_color
-
-        priors, _ = self.nnet_wrapper.predict(board)
-        valid_moves = board.valid_moves.split(";")
-        for i, move in enumerate(valid_moves):
-            root.priors[move] = priors[i] if i < len(priors) else 0.0
-
-        for _ in range(self.iterations):
-            node = root
-            simulation_board = deepcopy(board)
-
-            # Selection
-            while not node.is_terminal() and node.is_fully_expanded():
-                node = self.select_child(node)
-                if node.move is not None:
-                    simulation_board.play(node.move)
-
-            # Expansion
-            if not node.is_terminal():
-                move = self.untried_move(node)
-                if move is not None:
-                    simulation_board.play(move)
-                    child = self.Node(deepcopy(simulation_board), parent=node, move=move)
-                    child_priors, _ = self.nnet_wrapper.predict(simulation_board)
-                    valid_moves_child = simulation_board.valid_moves.split(";")
-                    for i, mv in enumerate(valid_moves_child):
-                        child.priors[mv] = child_priors[i] if i < len(child_priors) else 0.0
-                    node.children[move] = child
-                    node = child
-
-            # Simulation / Evaluation
-            if not node.is_terminal():
-                _, value = self.nnet_wrapper.predict(simulation_board)
-            else:
-                if simulation_board.state == GameState.DRAW:
-                    value = 0.5
-                elif ((simulation_board.state == GameState.WHITE_WINS and root_player == PlayerColor.WHITE) or
-                      (simulation_board.state == GameState.BLACK_WINS and root_player == PlayerColor.BLACK)):
-                    value = 1.0
-                else:
-                    value = 0.0
-
-            self.backpropagate(node, value)
-
-        # Collect visit counts for each valid move at the root.
-        counts = np.array([root.children[move].visits if move in root.children else 0 for move in valid_moves], dtype=np.float64)
-
-        if temp == 0:
-            best_actions = np.argwhere(counts == np.max(counts)).flatten()
-            best_action = np.random.choice(best_actions)
-            probs = np.zeros_like(counts)
-            probs[best_action] = 1
-            return probs
+        if (s, a) in self.Qsa:
+            self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
+            self.Nsa[(s, a)] += 1
         else:
-            counts = counts ** (1.0 / temp)
-            probs = counts / np.sum(counts)
-            return probs
-
-    def select_child(self, node: 'MCTSBrain.Node') -> 'MCTSBrain.Node':
-        best_score = -float('inf')
-        best_child: Optional[MCTSBrain.Node] = None
-        for move, child in node.children.items():
-            score = (child.wins / (child.visits + 1e-8)) + self.C * node.priors.get(move, 0) * math.sqrt(node.visits) / (child.visits + 1)
-            if score > best_score:
-                best_score = score
-                best_child = child
-        if best_child is None:
-            raise Exception("select_child: No valid child found. The node should have at least one child.")
-        return best_child
-
-    def untried_move(self, node: 'MCTSBrain.Node') -> Optional[str]:
-        valid_moves = [m for m in node.board.valid_moves.split(";") if m]
-        for move in valid_moves:
-            if move not in node.children:
-                return move
-        return None
-
-    def simulate(self, board: Board, root_player: PlayerColor) -> float:
-        while board.state == GameState.IN_PROGRESS:
-            valid_moves = [m for m in board.valid_moves.split(";") if m]
-            move = valid_moves[0] if valid_moves else Move.PASS
-            board.play(move)
-
-        if board.state == GameState.DRAW:
-            return 0.5
-        elif ((board.state == GameState.WHITE_WINS and root_player == PlayerColor.WHITE) or
-              (board.state == GameState.BLACK_WINS and root_player == PlayerColor.BLACK)):
-            return 1.0
-        else:
-            return 0.0
-
-    def backpropagate(self, node: Optional['MCTSBrain.Node'], reward: float) -> None:
-        while node is not None:
-            node.visits += 1
-            node.wins += reward
-            node = node.parent
+            self.Qsa[(s, a)] = v
+            self.Nsa[(s, a)] = 1
+        self.Ns[s] += 1
+        return -v
