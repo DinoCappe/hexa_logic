@@ -181,25 +181,25 @@ INV_TILE_DICT_FULL = {
     },
 }
 
-DIRECTION_MAP_SUFFIX = {  # when indicator is at end (e.g., "wS1/")
+DIRECTION_MAP_SUFFIX = {  # when indicator is at the end (e.g., "wS1/")
     "/": 0,  # top right edge
     "-": 1,  # right-hand edge
     "\\": 2, # bottom right edge
 }
-DIRECTION_MAP_PREFIX = {  # when indicator is at beginning (e.g., "/wS1")
+DIRECTION_MAP_PREFIX = {  # when indicator is at the beginning (e.g., "/wS1")
     "/": 3,  # bottom left edge
     "-": 4,  # left-hand edge
     "\\": 5, # top left edge
 }
 
-# Inverse mappings for direction indicators.
-INV_DIRECTION_MAP_PREFIX = {
+# Now define inverse mappings corresponding to the above:
+INV_DIRECTION_MAP_SUFFIX = {
     0: "/",
     1: "-",
     2: "\\"
 }
 
-INV_DIRECTION_MAP_SUFFIX = {
+INV_DIRECTION_MAP_PREFIX = {
     3: "/",
     4: "-",
     5: "\\"

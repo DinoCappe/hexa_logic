@@ -5,7 +5,7 @@ import csv
 from typing import Optional, Tuple
 from board import Board
 from utils import dotdict
-from coach import GameWrapper
+from gameWrapper import GameWrapper
 
 from typing import Callable
 Player = Callable[[Board], int]

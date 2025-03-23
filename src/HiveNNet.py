@@ -154,7 +154,7 @@ class HiveNNet(nn.Module):
         self.bn1 = nn.BatchNorm2d(self.num_channels)
 
         # Second convolutional layer.
-        self.conv2 = nn.Conv2d(in_channels, self.num_channels, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(self.num_channels, self.num_channels, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(self.num_channels)
         
         # Additional convolutional layers.
@@ -164,8 +164,14 @@ class HiveNNet(nn.Module):
             self.convs.append(nn.Conv2d(self.num_channels, self.num_channels, kernel_size=3, stride=1))
             self.bns.append(nn.BatchNorm2d(self.num_channels))
         
-        # Here we assume no change in spatial dimensions (stride=1, padding=1).
-        flattened_size = self.num_channels * self.board_x * self.board_y
+        # conv1 and conv2 preserve the dimensions.
+        # Additional layers reduce spatial dimensions by 2 per layer.
+        num_extra_layers = self.num_layers - 2  # For self.num_layers=8, that's 6 extra layers.
+        reduction = 2 * num_extra_layers         # 6*2 = 12.
+        effective_size = self.board_x - reduction  # 14 - 12 = 2 (assuming square input)
+        flattened_size = self.num_channels * effective_size * effective_size  # 256 * 2 * 2 = 1024
+
+        self.fc1 = nn.Linear(flattened_size, 4096)
         
         # Fully connected layers.
         self.fc1 = nn.Linear(flattened_size, 4096)

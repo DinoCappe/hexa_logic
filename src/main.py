@@ -2,7 +2,7 @@ import torch
 from utils import dotdict
 from coach import Coach
 from HiveNNet import NNetWrapper
-from coach import GameWrapper
+from gameWrapper import GameWrapper
 
 def main():
     # Define hyperparameters and configuration.
@@ -14,13 +14,18 @@ def main():
         'cuda': torch.cuda.is_available(),
         'num_channels': 256,
         'num_layers': 8,
-        'mcts_iterations': 100,         # Lower number for testing
+        'mcts_iterations': 100,   
+
         'exploration_constant': 1.41,
-        'numEps': 1,                    # Number of self-play games per iteration
-        'maxlenOfQueue': 2000,          # Maximum self-play examples to keep in history
-        'tempThreshold': 10,            # Temperature threshold for move selection
-        'numIters': 2,                  # Number of overall training iterations for testing
+        'numEps': 1,                    
+        'maxlenOfQueue': 5,
+        'numMCTSSims': 5,          
+        'tempThreshold': 10,
+        'updateThreshold': 0.55,
+        'arenaCompare': 5,             
+        'numIters': 2,                 
         'numItersForTrainExamplesHistory': 20,
+        'cpuct': 0,
         'checkpoint': 'checkpoints',
         'results': 'results'
     })
