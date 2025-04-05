@@ -2,13 +2,13 @@ from typing import List, Tuple
 import numpy as np
 
 from board import Board
-from enums import GameState, PlayerColor
+from enums import GameState
 from numpy.typing import NDArray
 import copy
 from board import ACTION_SPACE_SIZE
 
 USE_SYMMETRIES = True
-EXTRA_ACTION = 1  # if your pi vector length is 14*14+1
+EXTRA_ACTION = 1
 
 class GameWrapper:
     """
@@ -19,15 +19,12 @@ class GameWrapper:
         return Board()
     
     def getCanonicalForm(self, board: Board, player: int) -> Board:
-        """
-        Returns the board from the perspective of player 1.
-        If the current player is 1, return the board as is.
-        Otherwise, return a new board with colors inverted.
-        """
         if player == 1:
             return board
         else:
-            return board.invert_colors()
+            canon = board.invert_colors()
+            canon.turn = canon.turn - 1  
+            return canon
 
     def getNextState(self, board: Board, player: int, action: int) -> Tuple[Board, int]:
         """
@@ -36,12 +33,11 @@ class GameWrapper:
         move_str = board.decode_move_index(player, action)
         print("Best move string: ", move_str)
         
-        new_board = copy.deepcopy(board)
+        new_board = copy.deepcopy(board)    # infinite recursion issue
         new_board.play(move_str)
         print("New board after playing move: ", new_board)
         
-        new_player = 1 if new_board.current_player_color == PlayerColor.WHITE else 0
-        return new_board, new_player
+        return new_board, -player
 
     def getGameEnded(self, board: Board, player: int) -> float:
         """
@@ -75,18 +71,16 @@ class GameWrapper:
             return [(board.encode_board(grid_size=14).astype(np.float64), pi)]
 
         np_board = board.encode_board(grid_size=14) # shape (channels, 14, 14)
-        #print("[GET SYMMETRIES] np board: ", np_board)
+        # print("[GET SYMMETRIES] np board: ", np_board)
         
-        #TODO: board shape is too small, doesn't match action space!
-        board_shape = (14, 14)
-        expected_length = board_shape[0] * board_shape[1] + EXTRA_ACTION
+        expected_length = ACTION_SPACE_SIZE + EXTRA_ACTION
         print("Expected length: ", expected_length)
         print("Pi length: ", pi.shape[0])
         if pi.shape[0] != expected_length:
             return [(np_board.astype(np.float64), pi)]
         
         # Separate the extra action (if any) from the spatial part.
-        pi_board = np.reshape(pi[:-EXTRA_ACTION], board_shape)
+        pi_board = np.reshape(pi[:-EXTRA_ACTION], ACTION_SPACE_SIZE)
         extra = pi[-EXTRA_ACTION:]
         
         sym_list: List[Tuple[NDArray[np.float64], NDArray[np.float64]]] = []

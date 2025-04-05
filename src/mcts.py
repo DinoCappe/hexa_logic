@@ -81,6 +81,8 @@ class MCTSBrain(Brain):
         Recursively searches from the given canonicalBoard state.
         Returns the negative value of the state.
         """
+        player = 1 if canonicalBoard.current_player_color == PlayerColor.WHITE else 0
+
         s = self.game.stringRepresentation(canonicalBoard)
         print("[SEARCH] Using board state:", canonicalBoard)
 
@@ -96,7 +98,7 @@ class MCTSBrain(Brain):
         if s not in self.Ps:
             # Query the NN for policy and value.
             self.Ps[s], v = self.nnet.predict(canonicalBoard)
-            valids = self.game.getValidMoves(canonicalBoard, 1)
+            valids = self.game.getValidMoves(canonicalBoard, player)
             self.Ps[s] = self.Ps[s] * valids  # mask invalid moves
             sum_Ps = np.sum(self.Ps[s])
             if sum_Ps > 0:
@@ -113,13 +115,22 @@ class MCTSBrain(Brain):
         valids = self.Vs[s]
         print("[SEARCH] Valid moves for a state that's been seen before: ", canonicalBoard.valid_moves.split(";"))
 
+        # Update the cache if the fresh valid moves differ from the cached ones.
+        fresh_valids = self.game.getValidMoves(canonicalBoard, player)
+        if not np.array_equal(fresh_valids, valids):
+            print("[SEARCH] Detected change in valid moves for state", s, ". Updating cache.")
+            self.Vs[s] = fresh_valids
+            valids = fresh_valids
+
         cur_best = -float('inf')
         best_a = -1
         for a in range(self.game.getActionSize()):
             if valids[a]:
                 if (s, a) in self.Qsa:
+                    # when UCB and visit values are NOT zero
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
                 else:
+                    # when UCB and visit values are zero
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)
                 print(f"[SEARCH] Action {a}: UCB value = {u}, visits = {self.Nsa.get((s, a), 0)}")
                 if u > cur_best:
@@ -128,11 +139,10 @@ class MCTSBrain(Brain):
 
         a = best_a
         print("Best move index: ", a)
-        player = 1 if canonicalBoard.current_player_color == PlayerColor.WHITE else 0
-        next_board, next_player = self.game.getNextState(canonicalBoard, player, a)
+        next_board, _next_player = self.game.getNextState(canonicalBoard, player, a)
         #print("[SEARCH] Next board string:", self.game.stringRepresentation(next_board))
-        if canonicalBoard.turn % 2 == 1:
-            next_board = self.game.getCanonicalForm(next_board, next_player)
+        # if next_board.turn % 2 == 1:
+            # next_board = self.game.getCanonicalForm(next_board, next_player)
         v = self.search(next_board)
 
         if (s, a) in self.Qsa:

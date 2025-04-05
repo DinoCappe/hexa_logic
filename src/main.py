@@ -19,7 +19,7 @@ def main():
         'exploration_constant': 1.41,
         'numEps': 1,                    
         'maxlenOfQueue': 5,
-        'numMCTSSims': 5,          
+        'numMCTSSims': 10,          
         'tempThreshold': 10,
         'updateThreshold': 0.55,
         'arenaCompare': 5,             

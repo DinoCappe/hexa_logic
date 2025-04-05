@@ -4,11 +4,16 @@ from game import Position, Bug, Move
 import re
 import numpy as np
 from numpy.typing import NDArray
+from typing import Dict, Optional
 from copy import deepcopy
 import dictionaries
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
+
+#TODO: make sure these are correct!
+ROT60_DIRECTION_PERMUTATION = [1, 3, 0, 5, 2, 4, 6]
+FLIP_DIRECTION_PERMUTATION = [2, 1, 0, 5, 4, 3, 6]
 
 class Board():
   """
@@ -30,6 +35,7 @@ class Board():
   )
   """
   Offsets of every neighboring tile in each flat direction.
+  
   """
 
   def __init__(self, gamestring: str = "") -> None:
@@ -320,16 +326,16 @@ class Board():
     return int(index)
   
   def decode_move_index(self, player: int, index: int, simple: bool = False) -> str:
+    # If index equals the reserved pass index:
+    if index == ACTION_SPACE_SIZE:
+        return "pass"
+    
     # If it's the first move, return the piece's short name only.
     if self.turn == 0:
         tile_encoding = index  # for first move, our index is the tile encoding.
         moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "S1")  # default to spider if unknown.
         print("player: ", self.current_player_color)
         return ("b" if self.current_player_color == PlayerColor.BLACK else "w") + moving_piece_type
-
-    # Otherwise, if index equals the reserved pass index:
-    if index == ACTION_SPACE_SIZE:
-        return "pass"
 
     TILE_DIM = 14
     NUM_DIRECTIONS = 7
@@ -383,9 +389,17 @@ class Board():
     new_board: Board = deepcopy(self)
     new_board._bug_to_pos = {bug.invert_color(): pos for bug, pos in self._bug_to_pos.items()}
     new_board._pos_to_bug = {pos: [bug.invert_color() for bug in bugs] for pos, bugs in self._pos_to_bug.items()}
+    
     return new_board
+  
+  def rotate_board_60(self, np_board: NDArray[np.float64]) -> NDArray[np.float64]:
+      channels, _, _ = np_board.shape
+      rotated = np.empty_like(np_board)
+      for c in range(channels):
+          rotated[c] = self.rotate_channel_60(np_board[c])
+      return rotated
 
-  def rotate_board_60(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
+  def rotate_channel_60(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
       rot_board = np.rot90(board, -1)
       height, width = board.shape
       midway = height // 2 - 1
@@ -399,8 +413,15 @@ class Board():
 
       rotated = np.array([np.roll(row, row_number - midway) for row_number, row in enumerate(rot_board)])
       return rotated.astype(np.float64)
-
+  
   def reflect_board_vertically(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
+      channels,  _, _ = board.shape
+      reflected = np.empty_like(board)
+      for c in range(channels):
+          reflected[c] = self.reflect_channel_vertically(board[c])
+      return reflected
+
+  def reflect_channel_vertically(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
       """
       Reflects (flips) a 2D numpy array vertically.
       This is done by flipping the array using np.flipud, then shifting rows
@@ -430,8 +451,7 @@ class Board():
       Returns:
           The rotated policy board as a 2D numpy array.
       """
-      # For simplicity, apply the same transformation as for the board.
-      return self.rotate_board_60(pi_board.astype(np.float64)).astype(np.float64)
+      return pi_board[ROT60_DIRECTION_PERMUTATION]
 
   def reflect_pi_vertically(self, pi_board: NDArray[np.float64]) -> NDArray[np.float64]:
       """
@@ -445,7 +465,7 @@ class Board():
       Returns:
           The reflected policy board as a 2D numpy array.
       """
-      return self.reflect_board_vertically(pi_board.astype(np.float64)).astype(np.float64)
+      return pi_board[FLIP_DIRECTION_PERMUTATION]
 
   def _parse_turn(self, turn: str) -> int:
     """
@@ -879,3 +899,7 @@ class Board():
     :rtype: Position
     """
     return position + self.NEIGHBOR_DELTAS[direction.delta_index]
+
+  def get_bug_positions(self) -> Dict[Bug, Optional[Position]]:
+    """Returns a copy of the bug-to-position mapping."""
+    return self._bug_to_pos.copy()

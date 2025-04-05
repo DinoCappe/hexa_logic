@@ -5,6 +5,7 @@ from random import shuffle
 from tqdm import tqdm
 import csv
 
+from enums import PlayerColor
 from mcts import MCTSBrain
 from HiveNNet import NNetWrapper
 from utils import dotdict
@@ -42,12 +43,15 @@ class Coach:
 
         while True:
             episodeStep += 1
-            canonicalBoard = self.game.getCanonicalForm(board, currentPlayer)
+            print("[EXE EPISODE] Original board:", board)
+            # canonicalBoard = self.game.getCanonicalForm(board, currentPlayer)
+            # print("[EXE EPISODE] Canonical board:", canonicalBoard)
+
             temp = 1 if episodeStep < self.tempThreshold else 0
 
             # Get move probabilities from MCTS.
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-            symmetries = self.game.getSymmetries(canonicalBoard, pi)
+            pi = self.mcts.getActionProb(board, temp=temp)
+            symmetries = self.game.getSymmetries(board, pi)
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)
                 trainExamples.append((b, p, 0.0))  # Use a placeholder 0.0 instead of None.
@@ -55,8 +59,9 @@ class Coach:
             
             action = np.random.choice(len(pi), p=pi)
             print("[EXECUTE EPISODE] Randomly selected action: ", action)
-            board, currentPlayer = self.game.getNextState(board, currentPlayer, action)
-            r = self.game.getGameEnded(board, currentPlayer)
+            player = 1 if board.current_player_color == PlayerColor.WHITE else 0
+            board, currentPlayer = self.game.getNextState(board, player, action)
+            r = self.game.getGameEnded(board, player)
             if r != 0:
                 # Now update outcome for all examples.
                 return [(b, p, r * ((-1) ** (1 != currentPlayer))) for (b, p, _) in trainExamples]
