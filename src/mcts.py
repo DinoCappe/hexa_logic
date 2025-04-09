@@ -43,7 +43,7 @@ class MCTSBrain(Brain):
         for _i in range(self.args.numMCTSSims):
             self.search(canonicalBoard)
 
-        s = self.game.stringRepresentation(canonicalBoard)
+        s = canonicalBoard.stringRepresentation()
         counts = [self.Nsa.get((s, a), 0) for a in range(self.game.getActionSize())]
         print("[GET ACTION PROB] Counts:", counts)
         
@@ -83,12 +83,12 @@ class MCTSBrain(Brain):
         """
         player = 1 if canonicalBoard.current_player_color == PlayerColor.WHITE else 0
 
-        s = self.game.stringRepresentation(canonicalBoard)
+        s = canonicalBoard.stringRepresentation()
         print("[SEARCH] Using board state:", canonicalBoard)
 
         # If terminal state, return outcome.
-        if s not in self.Es:
-            self.Es[s] = self.game.getGameEnded(canonicalBoard, 1)
+        # if s not in self.Es: # if removed, otherwise draw detection fails.
+        self.Es[s] = self.game.getGameEnded(canonicalBoard, 1)
             #print("[SEARCH] Game outcome from getGameEnded:", self.Es[s])
         if self.Es[s] != 0:
             #print("[SEARCH] Terminal state detected. Outcome:", self.Es[s])

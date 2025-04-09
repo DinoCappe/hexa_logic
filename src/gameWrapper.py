@@ -50,6 +50,7 @@ class GameWrapper:
         if board.state in [GameState.NOT_STARTED, GameState.IN_PROGRESS]:
             return 0.0
         elif board.state == GameState.DRAW:
+            # TODO: Make sense 0.5? Should be 0.0 for both players?
             return 0.5
         elif board.state == GameState.WHITE_WINS:
             return 1.0 if player == 1 else -1.0
@@ -113,24 +114,6 @@ class GameWrapper:
     def getActionSize(self) -> int:
         action_space_size = ACTION_SPACE_SIZE
         return int(action_space_size + 1)  # +1 for the pass move.
-    
-    def stringRepresentation(self, board: Board) -> str:
-        """
-        Returns a hashable string representation that uniquely identifies the current state of the board.
-        
-        This is done by encoding the board into a numpy array (using board.encode_board),
-        flattening that array, and joining its elements into a string separated by colons.
-        
-        Adjust the grid_size as needed.
-        """
-        encoding = board.encode_board(grid_size=14)
-        #print("White queen plane:\n", encoding[0])
-        #print("Black queen plane:\n", encoding[1])
-        #print("White non-queen pieces plane:\n", encoding[2])
-        #print("Black non-queen pieces plane:\n", encoding[3])
-
-        board_as_string = ":".join(encoding.astype(str).flatten().tolist())
-        return board_as_string
 
     def getValidMoves(self, board: Board, player: int) -> NDArray[np.float64]:
         """

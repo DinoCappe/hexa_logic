@@ -58,6 +58,10 @@ class Board():
     """
     self._bug_to_pos: dict[Bug, Optional[Position]] = {}
     """
+    Numer of times that the same board state has been seen. Used for draw detection.
+    """
+    self.board_states: dict[str, int] = {}
+    """
     Map for bug pieces and their current position.  
     Position is None if the piece has not been played yet.  
     Also serves as a check for valid pieces for the game.
@@ -141,9 +145,15 @@ class Board():
           self._pos_to_bug[move.destination].append(move.bug)
         else:
           self._pos_to_bug[move.destination] = [move.bug]
+        actual_encoding = self.stringRepresentation()
+        if actual_encoding in self.board_states:
+          self.board_states[actual_encoding] += 1
+        else:
+          self.board_states[actual_encoding] = 1
         black_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.BLACK, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
         white_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.WHITE, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
-        if black_queen_surrounded and white_queen_surrounded:
+        # TODO: black and white surrounded condition is impossible to reach, the check should be if in the next move also the other queen can be surrounded
+        if black_queen_surrounded and white_queen_surrounded or self.board_states[actual_encoding] >= 3:
           self.state = GameState.DRAW
         elif black_queen_surrounded:
           self.state = GameState.WHITE_WINS
@@ -260,6 +270,24 @@ class Board():
                 encoding[3, i, j] = value
                 
       return encoding
+  
+  def stringRepresentation(self) -> str:
+        """
+        Returns a hashable string representation that uniquely identifies the current state of the board.
+        
+        This is done by encoding the board into a numpy array (using board.encode_board),
+        flattening that array, and joining its elements into a string separated by colons.
+        
+        Adjust the grid_size as needed.
+        """
+        encoding = self.encode_board(grid_size=14)
+        #print("White queen plane:\n", encoding[0])
+        #print("Black queen plane:\n", encoding[1])
+        #print("White non-queen pieces plane:\n", encoding[2])
+        #print("Black non-queen pieces plane:\n", encoding[3])
+
+        board_as_string = ":".join(encoding.astype(str).flatten().tolist())
+        return board_as_string
   
   def encode_move_string(self, move_str: str, player: int, simple: bool = False) -> int:
     """
