@@ -33,7 +33,7 @@ class GameWrapper:
         move_str = board.decode_move_index(player, action)
         print("Best move string: ", move_str)
         
-        new_board = copy.deepcopy(board)    # infinite recursion issue
+        new_board = copy.deepcopy(board)
         new_board.play(move_str)
         print("New board after playing move: ", new_board)
         

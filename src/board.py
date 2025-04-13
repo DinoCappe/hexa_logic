@@ -147,7 +147,7 @@ class Board():
           self._pos_to_bug[move.destination].append(move.bug)
         else:
           self._pos_to_bug[move.destination] = [move.bug]
-        actual_encoding = str(self.current_player_color) + self.stringRepresentation()
+        actual_encoding = str(self.current_player_color.code) + self.stringRepresentation()
         if actual_encoding in self.board_states:
           self.board_states[actual_encoding] += 1
         else:
@@ -933,3 +933,28 @@ class Board():
   def get_bug_positions(self) -> Dict[Bug, Optional[Position]]:
     """Returns a copy of the bug-to-position mapping."""
     return self._bug_to_pos.copy()
+  
+  def both_queen_surrounded_next_round(self) -> bool:
+    """
+    Checks if the queen is surrounded in the next round.
+
+    :return: Whether the queen is surrounded in the next round.
+    :rtype: bool
+    """
+    # This works only if the winning move is played with queen as relative position. TO BE CHECKED IF IT'S CORRECT
+    queen_pos = self._bug_to_pos[Bug(self.current_player_color, BugType.QUEEN_BEE)]
+    empty_dir = None
+    for direction in Direction.flat():
+      if queen_pos is not None and len(self._bugs_from_pos(self._get_neighbor(queen_pos, direction))) == 0:
+        if empty_dir is None:
+          empty_dir = direction
+        else: # If there are two empty spaces, the queen can't be surrounded in the next round
+          return False
+    moves = self._get_valid_moves()
+    if empty_dir is not None and empty_dir.is_left:
+      return any(empty_dir + self.current_player_color.code + str(BugType.QUEEN_BEE) in str(move) for move in moves)
+    elif empty_dir is not None:
+      return any(self.current_player_color.code + str(BugType.QUEEN_BEE) + empty_dir in str(move) for move in moves)
+    return False
+    
+      
