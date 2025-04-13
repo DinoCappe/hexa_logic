@@ -7,3 +7,4 @@
 venv
 env
 dist
+log_file.log

@@ -147,7 +147,7 @@ class Board():
           self._pos_to_bug[move.destination].append(move.bug)
         else:
           self._pos_to_bug[move.destination] = [move.bug]
-        actual_encoding = self.stringRepresentation()
+        actual_encoding = str(self.current_player_color) + self.stringRepresentation()
         if actual_encoding in self.board_states:
           self.board_states[actual_encoding] += 1
         else:
