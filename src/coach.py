@@ -12,6 +12,7 @@ from utils import dotdict
 from typing import Deque
 from arena import Arena
 from gameWrapper import *
+from ai import Random
 
 
 log = logging.getLogger(__name__)
@@ -35,11 +36,24 @@ class Coach:
         self.maxlenOfQueue = args.maxlenOfQueue  
         self.tempThreshold = args.tempThreshold
 
+    def random_agent_action(self, board: Board) -> int:
+        nrandom = Random()
+        move_str = nrandom.calculate_best_move(board)
+        player = 1 if board.current_player_color == PlayerColor.WHITE else 0
+        return board.encode_move_string(move_str, player)
+    
+    def mcts_agent_action(self, board: Board) -> int:
+        nmcts = MCTSBrain(self.game, self.nnet, self.args)
+        move_str = nmcts.calculate_best_move(board)
+        player = 1 if board.current_player_color == PlayerColor.WHITE else 0
+        return board.encode_move_string(move_str, player)
+
     def executeEpisode(self) -> List[TrainingExample]:
         trainExamples: List[TrainingExample] = []
         board = self.game.getInitBoard()
         currentPlayer = 1  # 1 for White, 0 for Black.
         episodeStep = 0
+        player = 1 if board.current_player_color == PlayerColor.WHITE else 0
 
         while True:
             episodeStep += 1
@@ -57,9 +71,19 @@ class Coach:
                 trainExamples.append((b, p, 0.0))  # Use a placeholder 0.0 instead of None.
                 print("Number of training examples generated: ", len(trainExamples))
             
+            # Check that the selected action is valid.
             action = np.random.choice(len(pi), p=pi)
+            valid_moves = self.game.getValidMoves(board, player)
+            if valid_moves[action] == 0:
+                print(f"[EXE EPISODE] Action {action} is invalid. Resampling from valid moves.")
+                valid_indices = np.nonzero(valid_moves)[0]
+                if valid_indices.size == 0:
+                    raise ValueError("No valid moves available!")
+                # Pick a random valid move.
+                action = np.random.choice(valid_indices)
+                print("[EXE EPISODE] Resampled action:", action)
+
             print("[EXECUTE EPISODE] Randomly selected action: ", action)
-            player = 1 if board.current_player_color == PlayerColor.WHITE else 0
             board, currentPlayer = self.game.getNextState(board, player, action)
             r = self.game.getGameEnded(board, player)
             if r != 0:
@@ -76,15 +100,11 @@ class Coach:
         model_iteration = 1
 
         # Evaluate initial performance against a random baseline.
-        nmcts = MCTSBrain(self.game, self.nnet, self.args)
-        arena = Arena(lambda x: self.args.random_move_baseline(x),
-                      lambda x: int(np.argmax(nmcts.getActionProb(x, temp=0))),
-                      self.game)
-        wins_random, wins_zero, draws = arena.playGames(50)
+        arena = Arena(self.random_agent_action,
+              self.mcts_agent_action,
+              self.game)
+        wins_random, wins_zero, draws = arena.playGames(5)
         logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
-        with open(f"{self.args.results}/random_baseline.csv", 'a') as outfile:
-            csvwriter = csv.writer(outfile)
-            csvwriter.writerow([model_iteration, wins_zero, wins_random])
 
         for i in range(1, numIters + 1):
             logging.info('Starting Iteration %d ...', i)
@@ -109,19 +129,14 @@ class Coach:
             
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTSBrain(self.game, self.nnet, self.args)
             
             self.nnet.train(converted_examples)
-            nmcts = MCTSBrain(self.game, self.nnet, self.args)
             
             logging.info('PITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: int(np.argmax(pmcts.getActionProb(x, temp=0))),
-                          lambda x: int(np.argmax(nmcts.getActionProb(x, temp=0))),
+            arena = Arena(self.mcts_agent_action,
+                          self.mcts_agent_action,
                           self.game)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
-            with open(f"{self.args.results}/stage3.csv", 'a') as outfile:
-                csvwriter = csv.writer(outfile)
-                csvwriter.writerow([nwins, pwins])
             logging.info('NEW/PREV WINS : %d / %d ; DRAWS : %d', nwins, pwins, draws)
             if (pwins + nwins == 0) or (float(nwins) / (pwins + nwins) < self.args.updateThreshold):
                 logging.info('REJECTING NEW MODEL')
@@ -131,9 +146,9 @@ class Coach:
                 model_iteration += 1
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
                 logging.info('PITTING AGAINST RANDOM BASELINE')
-                arena = Arena(lambda x: self.args.random_move_baseline(x),
-                              lambda x: int(np.argmax(nmcts.getActionProb(x, temp=0))),
-                              self.game)
+                arena = Arena(self.random_agent_action,
+                    self.mcts_agent_action,
+                    self.game)
                 wins_random, wins_zero, draws = arena.playGames(50)
                 logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
                 with open(f"{self.args.results}/random_baseline.csv", 'a') as outfile:

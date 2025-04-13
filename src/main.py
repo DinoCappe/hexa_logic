@@ -4,6 +4,18 @@ from coach import Coach
 from HiveNNet import NNetWrapper
 from gameWrapper import GameWrapper
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    filename='log_file.log',
+    filemode='a',
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+log = logging.getLogger(__name__)
+
 def main():
     # Define hyperparameters and configuration.
     args = dotdict({
@@ -17,13 +29,13 @@ def main():
         'mcts_iterations': 100,   
 
         'exploration_constant': 1.41,
-        'numEps': 1,                    
+        'numEps': 2,                    
         'maxlenOfQueue': 5,
         'numMCTSSims': 10,          
         'tempThreshold': 10,
         'updateThreshold': 0.55,
         'arenaCompare': 5,             
-        'numIters': 2,                 
+        'numIters': 5,                 
         'numItersForTrainExamplesHistory': 20,
         'cpuct': 0,
         'checkpoint': 'checkpoints',

@@ -66,12 +66,19 @@ class MCTSBrain(Brain):
     def calculate_best_move(self, board: Board) -> str:
         """
         Runs MCTS on the given board state and returns the best move as a string.
-        It uses getActionProb with temperature 0 for deterministic selection.
+        Uses getActionProb with temperature 0 for deterministic selection.
         """
-        # Get probability distribution from MCTS (deterministic with temp=0)
         probs = self.getActionProb(board, temp=0)
-        best_action_index = int(np.argmax(probs))
         player = 1 if board.current_player_color == PlayerColor.WHITE else 0
+        valid_moves = self.game.getValidMoves(board, player)
+        masked_probs = probs * valid_moves
+        
+        # If sum(masked_probs) == 0, you could choose a random move among valid indices as a fallback.
+        if np.sum(masked_probs) > 0:
+            best_action_index = int(np.argmax(masked_probs))
+        else:
+            valid_indices = np.nonzero(valid_moves)[0]
+            best_action_index = int(np.random.choice(valid_indices))
         
         move_str = board.decode_move_index(player, best_action_index)
         return move_str
@@ -88,7 +95,7 @@ class MCTSBrain(Brain):
 
         # If terminal state, return outcome.
         # if s not in self.Es: # if removed, otherwise draw detection fails.
-        self.Es[s] = self.game.getGameEnded(canonicalBoard, 1)
+        self.Es[s] = self.game.getGameEnded(canonicalBoard, player)
             #print("[SEARCH] Game outcome from getGameEnded:", self.Es[s])
         if self.Es[s] != 0:
             #print("[SEARCH] Terminal state detected. Outcome:", self.Es[s])

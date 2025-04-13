@@ -19,13 +19,22 @@ class Brain(ABC):
   def empty_cache(self) -> None:
     self._cache = None
 
+
 class Random(Brain):
   """
   Random acting AI agent.
   """
 
   def calculate_best_move(self, board: Board) -> str:
-    if not self._cache:
-      self._cache = choice(board.valid_moves.split(";"))
-    sleep(0.5)
-    return self._cache
+      print("[CALC BEST MOVE] Random agent playing")
+      valid_moves = [move for move in board.valid_moves.split(";") if move]
+
+      if not valid_moves:
+          return "pass"
+
+      # If the cached move is not in the current valid moves, choose a new one.
+      if not self._cache or self._cache not in valid_moves:
+          self._cache = choice(valid_moves)
+      
+      sleep(0.5)
+      return self._cache

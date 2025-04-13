@@ -4,6 +4,7 @@ from tqdm import tqdm
 import csv
 from typing import Optional, Tuple
 from board import Board
+from enums import PlayerColor
 from utils import dotdict
 from gameWrapper import GameWrapper
 
@@ -46,18 +47,20 @@ class Arena:
 
         while self.game.getGameEnded(board, curPlayer) == 0:
             it += 1
-            canonicalBoard = self.game.getCanonicalForm(board, curPlayer)
+            curPlayer = 1 if board.current_player_color == PlayerColor.WHITE else 0
+            # canonicalBoard = self.game.getCanonicalForm(board, curPlayer)
             if verbose and self.display:
                 print("Turn", it, "Player", curPlayer)
                 self.display(board)
-            action = self.player1(canonicalBoard) if curPlayer == 1 else self.player2(canonicalBoard)
-            valid_moves = self.game.getValidMoves(canonicalBoard, 1)
+            action = self.player1(board) if curPlayer == 1 else self.player2(board)
+            valid_moves = self.game.getValidMoves(board, curPlayer)
             if valid_moves[action] == 0:
+                print("[PLAY GAME] Player: ", curPlayer)
                 log.error(f"Action {action} is not valid!")
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
 
         if verbose and self.display:
-            print("Game over at turn", it, "Result", self.game.getGameEnded(board, 1))
+            print("Game over at turn", it, "Result", self.game.getGameEnded(board, curPlayer))
             self.display(board)
 
         if self.time_moves:

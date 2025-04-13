@@ -50,8 +50,7 @@ class GameWrapper:
         if board.state in [GameState.NOT_STARTED, GameState.IN_PROGRESS]:
             return 0.0
         elif board.state == GameState.DRAW:
-            # TODO: Make sense 0.5? Should be 0.0 for both players?
-            return 0.5
+            return -1e-2  # small bias
         elif board.state == GameState.WHITE_WINS:
             return 1.0 if player == 1 else -1.0
         elif board.state == GameState.BLACK_WINS:

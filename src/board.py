@@ -15,6 +15,8 @@ ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
 ROT60_DIRECTION_PERMUTATION = [1, 3, 0, 5, 2, 4, 6]
 FLIP_DIRECTION_PERMUTATION = [2, 1, 0, 5, 4, 3, 6]
 
+MAX_TURNS = 300
+
 class Board():
   """
   Game Board.
@@ -153,7 +155,7 @@ class Board():
         black_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.BLACK, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
         white_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.WHITE, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
         # TODO: black and white surrounded condition is impossible to reach, the check should be if in the next move also the other queen can be surrounded
-        if black_queen_surrounded and white_queen_surrounded or self.board_states[actual_encoding] >= 3:
+        if black_queen_surrounded and white_queen_surrounded or self.board_states[actual_encoding] >= 3 or self.turn >= MAX_TURNS:
           self.state = GameState.DRAW
         elif black_queen_surrounded:
           self.state = GameState.WHITE_WINS

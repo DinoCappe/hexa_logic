@@ -8,6 +8,9 @@ import numpy as np
 from numpy.typing import NDArray
 import random
 import os
+import logging
+
+log = logging.getLogger(__name__)
 
 class NNetWrapper:
     def __init__(self, board_size: tuple[int, int], action_size: int, args: dotdict):
@@ -66,6 +69,8 @@ class NNetWrapper:
         epochs = self.args['epochs']
         
         self.nnet.train()
+
+        logging.info('STARTING TRAINING')
         
         for epoch in range(epochs):
             print(f"Epoch {epoch+1}/{epochs}")
