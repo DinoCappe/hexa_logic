@@ -36,5 +36,4 @@ class Random(Brain):
       if not self._cache or self._cache not in valid_moves:
           self._cache = choice(valid_moves)
       
-      sleep(0.5)
       return self._cache

@@ -19,25 +19,31 @@ class GameWrapper:
         return Board()
     
     def getCanonicalForm(self, board: Board, player: int) -> Board:
+        print("  >>> getCanonicalForm: incoming board:", board, "player:", player)
         if player == 1:
-            return board
+            canon = board
         else:
             canon = board.invert_colors()
-            canon.turn = canon.turn - 1  
-            return canon
+        print("  >>> getCanonicalForm: outgoing canon:", canon)
+        return canon
 
-    def getNextState(self, board: Board, player: int, action: int) -> Tuple[Board, int]:
-        """
-        Applies the move corresponding to the action index and returns a new board state.
-        """
+    def getNextState(self, board: Board, player: int, action: int) -> Tuple[Board,int]:
+        # decode against the “real” board, not the canonical one
         move_str = board.decode_move_index(player, action)
-        print("Best move string: ", move_str)
-        
-        new_board = copy.deepcopy(board)
-        new_board.play(move_str)
-        print("New board after playing move: ", new_board)
-        
-        return new_board, -player
+
+        # ----- NEW DEBUGGING ASSERTION -----
+        valid = board.valid_moves.split(";")
+        assert move_str in valid, (
+            f"DECODED move_str `{move_str}` not in board.valid_moves!\n"
+            f"  board was: {board}\n"
+            f"  valid_moves: {valid}"
+        )
+        # -----------------------------------
+        print("  >>> getNextState: before play:", board, "action index:", action)
+        new = copy.deepcopy(board)
+        new.play(move_str)
+        print("  >>> getNextState: after play:", new, "next_player:", 1-player)
+        return new, 1-player
 
     def getGameEnded(self, board: Board, player: int) -> float:
         """
@@ -88,24 +94,30 @@ class GameWrapper:
         cur_pi = np.asarray(pi_board, dtype=np.float64)
         extra = np.asarray(extra, dtype=np.float64)
 
-        # First 6 rotations (each by 60 degrees)
-        for _i in range(6):
-            combined = np.concatenate((cur_pi.ravel(), extra))
-            sym_list.append((cur_board, combined))
+        # first 6 rotations by 60°
+        for _ in range(6):
+            # flatten the spatial π back to 1d and tack on the extra slot
+            full_pi = np.concatenate((cur_pi.ravel(), extra))
 
-            cur_board = board.rotate_board_60(cur_board).astype(np.float64)
-            cur_pi = board.rotate_pi_60(cur_pi).astype(np.float64)
+            # append *copies* of both arrays
+            sym_list.append((cur_board.copy(), full_pi.copy()))
 
-        # Reflect vertically.
-        cur_board = board.reflect_board_vertically(cur_board).astype(np.float64)
-        cur_pi = board.reflect_pi_vertically(cur_pi).astype(np.float64)
+            # rotate in preparation for the next one
+            cur_board = board.rotate_board_60(cur_board)
+            cur_pi    = board.rotate_pi_60(cur_pi)
 
-        # Next 6 rotations of the reflected board.
-        for _i in range(6):
-            combined = np.concatenate((cur_pi.ravel(), extra))
-            sym_list.append((cur_board, combined))
-            cur_board = board.rotate_board_60(cur_board).astype(np.float64)
-            cur_pi = board.rotate_pi_60(cur_pi).astype(np.float64)
+        #––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+        # reflect once
+        cur_board = board.reflect_board_vertically(cur_board)
+        cur_pi    = board.reflect_pi_vertically(cur_pi)
+
+        # then 6 more rotations of that reflected version
+        for _ in range(6):
+            full_pi = np.concatenate((cur_pi.ravel(), extra))
+            sym_list.append((cur_board.copy(), full_pi.copy()))
+
+            cur_board = board.rotate_board_60(cur_board)
+            cur_pi    = board.rotate_pi_60(cur_pi)
 
         print("[GET SYMMETRIES] Sym list length: ", len(sym_list))
         return sym_list

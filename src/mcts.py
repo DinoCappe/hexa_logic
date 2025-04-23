@@ -7,8 +7,7 @@ from ai import Brain
 from gameWrapper import GameWrapper
 from HiveNNet import NNetWrapper
 from utils import dotdict
-from enums import PlayerColor
-# from copy import deepcopy
+from typing import List, Optional
 
 EPS = 1e-8
 
@@ -41,7 +40,7 @@ class MCTSBrain(Brain):
 
     def getActionProb(self, canonicalBoard: Board, temp: float = 1) -> NDArray[np.float64]:
         for _i in range(self.args.numMCTSSims):
-            self.search(canonicalBoard)
+            self.search(canonicalBoard, 1)
 
         s = canonicalBoard.stringRepresentation()
         counts = [self.Nsa.get((s, a), 0) for a in range(self.game.getActionSize())]
@@ -69,8 +68,7 @@ class MCTSBrain(Brain):
         Uses getActionProb with temperature 0 for deterministic selection.
         """
         probs = self.getActionProb(board, temp=0)
-        player = 1 if board.current_player_color == PlayerColor.WHITE else 0
-        valid_moves = self.game.getValidMoves(board, player)
+        valid_moves = self.game.getValidMoves(board, 1)
         masked_probs = probs * valid_moves
         
         # If sum(masked_probs) == 0, you could choose a random move among valid indices as a fallback.
@@ -80,84 +78,83 @@ class MCTSBrain(Brain):
             valid_indices = np.nonzero(valid_moves)[0]
             best_action_index = int(np.random.choice(valid_indices))
         
-        move_str = board.decode_move_index(player, best_action_index)
+        move_str = board.decode_move_index(1, best_action_index)
         return move_str
 
-    def search(self, canonicalBoard: Board) -> float:
+    def search(self, canon: Board, player: int = 1, path: Optional[List[str]] = None) -> float:
         """
-        Recursively searches from the given canonicalBoard state.
+        canon is always a canonicalized board (to-move is 'player 1').
         Returns the negative value of the state.
         """
-        player = 1 if canonicalBoard.current_player_color == PlayerColor.WHITE else 0
+        if path is None:
+            path = []
 
-        s = canonicalBoard.stringRepresentation()
-        print("[SEARCH] Using board state:", canonicalBoard)
+        s = canon.stringRepresentation()
+        print(f"{'  ' * len(path)}[SEARCH depth={len(path)}]")
 
-        # If terminal state, return outcome.
-        # if s not in self.Es: # if removed, otherwise draw detection fails.
-        self.Es[s] = self.game.getGameEnded(canonicalBoard, player)
-            #print("[SEARCH] Game outcome from getGameEnded:", self.Es[s])
+        new_path = path + [s]
+
+        # --- TERMINAL CHECK on the canonical board ---
+        self.Es[s] = self.game.getGameEnded(canon, 1)
         if self.Es[s] != 0:
-            #print("[SEARCH] Terminal state detected. Outcome:", self.Es[s])
             return -self.Es[s]
 
-        # If state is not in cache, it's a leaf.
+        # --- LEAF NODE: ask NN for P, v and initialize caches ---
         if s not in self.Ps:
-            # Query the NN for policy and value.
-            self.Ps[s], v = self.nnet.predict(canonicalBoard)
-            valids = self.game.getValidMoves(canonicalBoard, player)
-            self.Ps[s] = self.Ps[s] * valids  # mask invalid moves
-            sum_Ps = np.sum(self.Ps[s])
-            if sum_Ps > 0:
-                self.Ps[s] /= sum_Ps
+            p_logits, v = self.nnet.predict(canon)
+            valid_mask = self.game.getValidMoves(canon, 1)
+
+            # mask and renormalize
+            p = p_logits * valid_mask
+            if p.sum() > 0:
+                p /= p.sum()
             else:
-                # If all valid moves were masked, use uniform probabilities.
-                self.Ps[s] = self.Ps[s] + valids
-                self.Ps[s] /= np.sum(self.Ps[s])
-            self.Vs[s] = valids
+                p = valid_mask / valid_mask.sum()
+
+            self.Ps[s] = p
+            self.Vs[s] = valid_mask
             self.Ns[s] = 0
             return -v
 
-        # Otherwise, choose the action with highest UCB.
-        valids = self.Vs[s]
-        print("[SEARCH] Valid moves for a state that's been seen before: ", canonicalBoard.valid_moves.split(";"))
+        # --- INTERNAL NODE: pick best UCB ---
+        valid_mask = self.Vs[s]
+        fresh = self.game.getValidMoves(canon, 1)
+        if not np.array_equal(fresh, valid_mask):
+            print("[SEARCH] valid‐moves changed, updating cache")
+            self.Vs[s] = fresh
+            valid_mask = fresh
 
-        # Update the cache if the fresh valid moves differ from the cached ones.
-        fresh_valids = self.game.getValidMoves(canonicalBoard, player)
-        if not np.array_equal(fresh_valids, valids):
-            print("[SEARCH] Detected change in valid moves for state", s, ". Updating cache.")
-            self.Vs[s] = fresh_valids
-            valids = fresh_valids
-
-        cur_best = -float('inf')
-        best_a = -1
+        cur_best, best_a = -float('inf'), -1
         for a in range(self.game.getActionSize()):
-            if valids[a]:
-                if (s, a) in self.Qsa:
-                    # when UCB and visit values are NOT zero
-                    u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
-                else:
-                    # when UCB and visit values are zero
-                    u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)
-                print(f"[SEARCH] Action {a}: UCB value = {u}, visits = {self.Nsa.get((s, a), 0)}")
-                if u > cur_best:
-                    cur_best = u
-                    best_a = a
+            if not valid_mask[a]:
+                continue
+            if (s, a) in self.Qsa:
+                u = ( self.Qsa[(s,a)]
+                    + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) 
+                                    / (1 + self.Nsa[(s,a)]) )
+            else:
+                u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + 1e-8)
 
-        a = best_a
-        print("Best move index: ", a)
-        next_board, _next_player = self.game.getNextState(canonicalBoard, player, a)
-        #print("[SEARCH] Next board string:", self.game.stringRepresentation(next_board))
-        # if next_board.turn % 2 == 1:
-            # next_board = self.game.getCanonicalForm(next_board, next_player)
-        v = self.search(next_board)
+            if u > cur_best:
+                cur_best, best_a = u, a
 
-        if (s, a) in self.Qsa:
-            self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
-            self.Nsa[(s, a)] += 1
+        # --- Expand that move ---
+        next_raw, next_player = self.game.getNextState(canon, 1, best_a)
+        next_canon      = self.game.getCanonicalForm(next_raw, next_player)
+        print(f"{'  ' * (len(path)+1)}")
+
+        # --- Recurse ---
+        v = self.search(next_canon, 1, new_path)
+
+        # --- Back-up value ---
+        if (s, best_a) in self.Qsa:
+            self.Qsa[(s,best_a)] = ((self.Nsa[(s,best_a)] * self.Qsa[(s,best_a)] + v)
+                                    / (self.Nsa[(s,best_a)] + 1))
+            self.Nsa[(s,best_a)] += 1
         else:
-            self.Qsa[(s, a)] = v
-            self.Nsa[(s, a)] = 1
+            self.Qsa[(s,best_a)] = v
+            self.Nsa[(s,best_a)] = 1
         self.Ns[s] += 1
-        #print("[SEARCH] Updated state:", s, "visit count:", self.Ns[s], "Qsa for action", a, "=", self.Qsa[(s, a)])
+
         return -v
+
