@@ -1,5 +1,12 @@
-from enum import StrEnum, Flag, auto
 from functools import reduce
+try:
+    from enum import StrEnum # type: ignore
+except ImportError:
+    from enum import Enum
+    class StrEnum(str, Enum):
+        """Backport of 3.11’s StrEnum for older Pythons."""
+        pass
+from enum import Flag, auto
 
 class Command(StrEnum):
   """

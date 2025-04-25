@@ -6,6 +6,8 @@ from enums import GameState
 from numpy.typing import NDArray
 import copy
 from board import ACTION_SPACE_SIZE
+from symmetries import MySymmetry, Rotate60, ReflectVert
+from typing import Sequence
 
 USE_SYMMETRIES = True
 EXTRA_ACTION = 1
@@ -19,12 +21,12 @@ class GameWrapper:
         return Board()
     
     def getCanonicalForm(self, board: Board, player: int) -> Board:
-        print("  >>> getCanonicalForm: incoming board:", board, "player:", player)
+        # print("  >>> getCanonicalForm: incoming board:", board, "player:", player)
         if player == 1:
             canon = board
         else:
             canon = board.invert_colors()
-        print("  >>> getCanonicalForm: outgoing canon:", canon)
+        # print("  >>> getCanonicalForm: outgoing canon:", canon)
         return canon
 
     def getNextState(self, board: Board, player: int, action: int) -> Tuple[Board,int]:
@@ -39,10 +41,10 @@ class GameWrapper:
             f"  valid_moves: {valid}"
         )
         # -----------------------------------
-        print("  >>> getNextState: before play:", board, "action index:", action)
+        # print("  >>> getNextState: before play:", board, "action index:", action)
         new = copy.deepcopy(board)
         new.play(move_str)
-        print("  >>> getNextState: after play:", new, "next_player:", 1-player)
+        # print("  >>> getNextState: after play:", new, "next_player:", 1-player)
         return new, 1-player
 
     def getGameEnded(self, board: Board, player: int) -> float:
@@ -63,64 +65,23 @@ class GameWrapper:
             return 1.0 if player == 0 else -1.0
         return 0.0
 
-    def getSymmetries(self, board: Board, pi: NDArray[np.float64]) -> List[Tuple[NDArray[np.float64], NDArray[np.float64]]]:
-        """
-        Return a list of (board, pi) pairs for all 12 symmetries of the board.
-        The board is represented as a numpy array (obtained from board.encode_board),
-        and pi is a policy vector that is assumed to be spatially encoded.
-        
-        If symmetries are disabled or the policy vector doesn't match expectations,
-        simply return the original board encoding and pi.
-        """
+    def getSymmetries(
+        self, 
+        board: Board, 
+        pi: NDArray[np.float64]
+    ) -> List[Tuple[NDArray[np.float64], NDArray[np.float64]]]:
+        syms: List[Tuple[NDArray[np.float64], NDArray[np.float64]]] = []
+        for t in self.symmetry_transforms():
+            b2 = t.apply_to_board(board)
+            pi2: NDArray[np.float64] = np.zeros_like(pi)
+            # shuffle the probabilities through the action permutation
+            for i in range(pi.shape[0]):
+                pi2[t.apply_to_action(i)] = pi[i]
+            syms.append((b2.encode_board(grid_size=14).astype(np.float64), pi2))
+        return syms
 
-        if not USE_SYMMETRIES:
-            return [(board.encode_board(grid_size=14).astype(np.float64), pi)]
-
-        np_board = board.encode_board(grid_size=14) # shape (channels, 14, 14)
-        # print("[GET SYMMETRIES] np board: ", np_board)
-        
-        expected_length = ACTION_SPACE_SIZE + EXTRA_ACTION
-        print("Expected length: ", expected_length)
-        print("Pi length: ", pi.shape[0])
-        if pi.shape[0] != expected_length:
-            return [(np_board.astype(np.float64), pi)]
-        
-        # Separate the extra action (if any) from the spatial part.
-        pi_board = np.reshape(pi[:-EXTRA_ACTION], ACTION_SPACE_SIZE)
-        extra = pi[-EXTRA_ACTION:]
-        
-        sym_list: List[Tuple[NDArray[np.float64], NDArray[np.float64]]] = []
-        cur_board = np.asarray(np_board, dtype=np.float64)  # Ensure float64
-        cur_pi = np.asarray(pi_board, dtype=np.float64)
-        extra = np.asarray(extra, dtype=np.float64)
-
-        # first 6 rotations by 60°
-        for _ in range(6):
-            # flatten the spatial π back to 1d and tack on the extra slot
-            full_pi = np.concatenate((cur_pi.ravel(), extra))
-
-            # append *copies* of both arrays
-            sym_list.append((cur_board.copy(), full_pi.copy()))
-
-            # rotate in preparation for the next one
-            cur_board = board.rotate_board_60(cur_board)
-            cur_pi    = board.rotate_pi_60(cur_pi)
-
-        #––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-        # reflect once
-        cur_board = board.reflect_board_vertically(cur_board)
-        cur_pi    = board.reflect_pi_vertically(cur_pi)
-
-        # then 6 more rotations of that reflected version
-        for _ in range(6):
-            full_pi = np.concatenate((cur_pi.ravel(), extra))
-            sym_list.append((cur_board.copy(), full_pi.copy()))
-
-            cur_board = board.rotate_board_60(cur_board)
-            cur_pi    = board.rotate_pi_60(cur_pi)
-
-        print("[GET SYMMETRIES] Sym list length: ", len(sym_list))
-        return sym_list
+    def symmetry_transforms(self) -> Sequence[MySymmetry]:
+        return [Rotate60(i) for i in range(6)] + [ReflectVert()] + [Rotate60(i, after_reflection=True) for i in range(6)]
 
     def getActionSize(self) -> int:
         action_space_size = ACTION_SPACE_SIZE

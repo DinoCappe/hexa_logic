@@ -7,14 +7,10 @@ from numpy.typing import NDArray
 from typing import Dict, Optional
 from copy import deepcopy
 import dictionaries
+from collections.abc import Iterable
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
-
-#TODO: make sure these are correct!
-ROT60_DIRECTION_PERMUTATION = [1, 3, 0, 5, 2, 4, 6]
-FLIP_DIRECTION_PERMUTATION = [2, 1, 0, 5, 4, 3, 6]
-
 MAX_TURNS = 300
 
 class Board():
@@ -49,6 +45,7 @@ class Board():
     """
     type, state, turn, moves = self._parse_gamestring(gamestring)
     self.type: Final[GameType] = type
+    expansions = self.type if isinstance(self.type, Iterable) else [self.type] # type: ignore
     self.state: GameState = state
     self.turn: int = turn
     self.move_strings: list[str] = []
@@ -69,7 +66,7 @@ class Board():
     Also serves as a check for valid pieces for the game.
     """
     for color in PlayerColor:
-      for expansion in self.type:
+      for expansion in expansions:
         if expansion is GameType.Base:
           self._bug_to_pos[Bug(color, BugType.QUEEN_BEE)] = None
           # Add ids greater than 0 only for bugs with multiple copies.
@@ -363,7 +360,6 @@ class Board():
     if self.turn == 0:
         tile_encoding = index  # for first move, our index is the tile encoding.
         moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "S1")  # default to spider if unknown.
-        print("player: ", self.current_player_color)
         return ("b" if player == 0 else "w") + moving_piece_type
 
     TILE_DIM = 14
@@ -422,80 +418,56 @@ class Board():
     new._valid_moves_cache = None
     return new
   
-  def rotate_board_60(self, np_board: NDArray[np.float64]) -> NDArray[np.float64]:
-      channels, _, _ = np_board.shape
-      rotated = np.empty_like(np_board)
-      for c in range(channels):
-          rotated[c] = self.rotate_channel_60(np_board[c])
-      return rotated
+  @staticmethod
+  def _rotate60_pos(pos: Position) -> Position:
+    # using cube-coords rotation (x,y,z)->(−z,−x,−y),
+    # with x=q, y=r, z=−q−r  ⇒  axial (q,r)->(q+r, −q)
+    return Position(pos.q + pos.r, -pos.q)
 
-  def rotate_channel_60(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
-      rot_board = np.rot90(board, -1)
-      height, width = board.shape
-      midway = height // 2 - 1
-
-      nonzero_after = [x + (y - midway) for y, x in zip(*np.nonzero(rot_board))]
-      if nonzero_after:
-          midway_before = width // 2 - 1
-          midway_after = (min(nonzero_after) + max(nonzero_after)) // 2
-          center_shift = midway_before - midway_after
-          rot_board = np.roll(rot_board, center_shift, axis=1)
-
-      rotated = np.array([np.roll(row, row_number - midway) for row_number, row in enumerate(rot_board)])
-      return rotated.astype(np.float64)
+  @staticmethod
+  def _reflect_vertically_pos(pos: Position) -> Position:
+    # flip rows (i.e. invert q)
+    return Position(-pos.q, pos.r)
   
-  def reflect_board_vertically(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
-      channels,  _, _ = board.shape
-      reflected = np.empty_like(board)
-      for c in range(channels):
-          reflected[c] = self.reflect_channel_vertically(board[c])
-      return reflected
+  from typing import Dict, Optional
 
-  def reflect_channel_vertically(self, board: NDArray[np.float64]) -> NDArray[np.float64]:
-      """
-      Reflects (flips) a 2D numpy array vertically.
-      This is done by flipping the array using np.flipud, then shifting rows
-      to restore the board’s structure.
-      
-      Args:
-          board: A 2D numpy array.
-      
-      Returns:
-          A 2D numpy array of the reflected board.
-      """
-      flipped_board = np.flipud(board)
-      height, _ = board.shape
-      midway = height // 2
-      reflected = np.array([np.roll(row, row_number - midway) for row_number, row in enumerate(flipped_board)])
-      return reflected
+  def rotate_60(self) -> "Board":
+      """Return a new Board rotated +60° around the origin."""
+      new = deepcopy(self)
 
-  def rotate_pi_60(self, pi_board: NDArray[np.float64]) -> NDArray[np.float64]:
-      """
-      Rotates a 2D policy board (a numpy array) by 60 degrees.
-      This implementation simply applies the same transformation as rotate_board_60,
-      under the assumption that the policy board has a compatible spatial layout.
-      
-      Args:
-          pi_board: A 2D numpy array representing the spatial part of the policy.
-      
-      Returns:
-          The rotated policy board as a 2D numpy array.
-      """
-      return pi_board[ROT60_DIRECTION_PERMUTATION]
+      new_map: Dict[Bug, Optional[Position]] = {bug: None for bug in self._bug_to_pos}
+      for bug, pos in self._bug_to_pos.items():
+          if pos is not None:
+              new_map[bug] = Board._rotate60_pos(pos)
+      new._bug_to_pos = new_map
 
-  def reflect_pi_vertically(self, pi_board: NDArray[np.float64]) -> NDArray[np.float64]:
-      """
-      Reflects a 2D policy board (a numpy array) vertically.
-      This implementation applies the same transformation as reflect_board_vertically,
-      assuming that the policy board shares the same structure.
-      
-      Args:
-          pi_board: A 2D numpy array representing the spatial part of the policy.
-      
-      Returns:
-          The reflected policy board as a 2D numpy array.
-      """
-      return pi_board[FLIP_DIRECTION_PERMUTATION]
+      new._pos_to_bug = {}
+      for bug, pos in new_map.items():
+          if pos is not None:
+              new._pos_to_bug.setdefault(pos, []).append(bug)
+
+      new._valid_moves_cache = None
+
+      return new
+
+
+  def reflect_vertically(self) -> "Board":
+      """Return a new Board flipped top↔bottom across the horizontal axis."""
+      new = deepcopy(self)
+
+      new_map: Dict[Bug, Optional[Position]] = {bug: None for bug in self._bug_to_pos}
+      for bug, pos in self._bug_to_pos.items():
+          if pos is not None:
+              new_map[bug] = Board._reflect_vertically_pos(pos)
+      new._bug_to_pos = new_map
+
+      new._pos_to_bug = {}
+      for bug, pos in new_map.items():
+          if pos is not None:
+              new._pos_to_bug.setdefault(pos, []).append(bug)
+
+      new._valid_moves_cache = None
+      return new
 
   def _parse_turn(self, turn: str) -> int:
     """

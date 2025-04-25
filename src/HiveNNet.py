@@ -10,8 +10,6 @@ import random
 import os
 import logging
 
-log = logging.getLogger(__name__)
-
 class NNetWrapper:
     def __init__(self, board_size: tuple[int, int], action_size: int, args: dotdict):
         """
@@ -112,7 +110,9 @@ class NNetWrapper:
             
             avg_loss_pi = epoch_loss_pi / batch_count if batch_count > 0 else float('nan')
             avg_loss_v = epoch_loss_v / batch_count if batch_count > 0 else float('nan')
-            print(f"Epoch {epoch+1}: Policy Loss = {avg_loss_pi:.4f}, Value Loss = {avg_loss_v:.4f}")
+            msg = f"Epoch {epoch}/{self.args.epochs}  Policy Loss = {avg_loss_pi:.4f}, Value Loss = {avg_loss_v:.4f}"
+            print(msg)
+            logging.info(msg)
 
     def save_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
@@ -175,8 +175,6 @@ class HiveNNet(nn.Module):
         reduction = 2 * num_extra_layers         # 6*2 = 12.
         effective_size = self.board_x - reduction  # 14 - 12 = 2 (assuming square input)
         flattened_size = self.num_channels * effective_size * effective_size  # 256 * 2 * 2 = 1024
-
-        self.fc1 = nn.Linear(flattened_size, 4096)
         
         # Fully connected layers.
         self.fc1 = nn.Linear(flattened_size, 4096)
