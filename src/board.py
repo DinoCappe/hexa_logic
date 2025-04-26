@@ -151,7 +151,6 @@ class Board():
           self.board_states[actual_encoding] = 1
         black_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.BLACK, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
         white_queen_surrounded = (queen_pos := self._bug_to_pos[Bug(PlayerColor.WHITE, BugType.QUEEN_BEE)]) and all(self._bugs_from_pos(self._get_neighbor(queen_pos, direction)) for direction in Direction.flat())
-        # TODO: black and white surrounded condition is impossible to reach, the check should be if in the next move also the other queen can be surrounded
         if black_queen_surrounded and white_queen_surrounded or self.board_states[actual_encoding] >= 3 or self.turn >= MAX_TURNS:
           self.state = GameState.DRAW
         elif black_queen_surrounded:
@@ -905,28 +904,5 @@ class Board():
   def get_bug_positions(self) -> Dict[Bug, Optional[Position]]:
     """Returns a copy of the bug-to-position mapping."""
     return self._bug_to_pos.copy()
-  
-  def both_queen_surrounded_next_round(self) -> bool:
-    """
-    Checks if the queen is surrounded in the next round.
-
-    :return: Whether the queen is surrounded in the next round.
-    :rtype: bool
-    """
-    # This works only if the winning move is played with queen as relative position. TO BE CHECKED IF IT'S CORRECT
-    queen_pos = self._bug_to_pos[Bug(self.current_player_color, BugType.QUEEN_BEE)]
-    empty_dir = None
-    for direction in Direction.flat():
-      if queen_pos is not None and len(self._bugs_from_pos(self._get_neighbor(queen_pos, direction))) == 0:
-        if empty_dir is None:
-          empty_dir = direction
-        else: # If there are two empty spaces, the queen can't be surrounded in the next round
-          return False
-    moves = self._get_valid_moves()
-    if empty_dir is not None and empty_dir.is_left:
-      return any(empty_dir + self.current_player_color.code + str(BugType.QUEEN_BEE) in str(move) for move in moves)
-    elif empty_dir is not None:
-      return any(self.current_player_color.code + str(BugType.QUEEN_BEE) + empty_dir in str(move) for move in moves)
-    return False
     
       
