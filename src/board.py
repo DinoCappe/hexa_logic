@@ -341,6 +341,7 @@ class Board():
             direction_encoding = 6
             neighbor_str = destination
         # Use the full dictionary to get next_to_encoding.
+        player = 1 if self.current_player_color == PlayerColor.WHITE else 0
         next_to_encoding = dictionaries.TILE_DICT_FULL[player].get(neighbor_str, 0)
     else:
         raise ValueError(f"Cannot parse move string: {move_str}")
@@ -360,7 +361,7 @@ class Board():
     if self.turn == 0:
         tile_encoding = index  # for first move, our index is the tile encoding.
         moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "S1")  # default to spider if unknown.
-        return ("b" if player == 0 else "w") + moving_piece_type
+        return ("b" if self.current_player_color == PlayerColor.BLACK else "w") + moving_piece_type
 
     TILE_DIM = 14
     NUM_DIRECTIONS = 7
@@ -379,9 +380,9 @@ class Board():
         print("tile: ", tile_encoding)
 
     moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "S1")
-    print("player: ", self.current_player_color)
-    moving_piece = ("b" if player == 0 else "w") + moving_piece_type
+    moving_piece = ("b" if self.current_player_color == PlayerColor.BLACK else "w") + moving_piece_type
     print("moving piece: ", moving_piece)
+    player = 1 if self.current_player_color == PlayerColor.WHITE else 0
     neighbor_piece = dictionaries.INV_TILE_DICT_FULL[player].get(next_to_encoding, "UNKNOWN")
     print("neighbor piece: ", neighbor_piece)
 
@@ -414,7 +415,6 @@ class Board():
     # flip every bug
     new._bug_to_pos = { b.invert_color():p for b,p in self._bug_to_pos.items() }
     new._pos_to_bug = { p:[b.invert_color() for b in bs] for p,bs in self._pos_to_bug.items() }
-    new.turn += 1
     new._valid_moves_cache = None
     return new
   

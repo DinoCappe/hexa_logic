@@ -5,6 +5,7 @@ from random import shuffle
 from tqdm import tqdm
 import csv
 
+from enums import PlayerColor
 from mcts import MCTSBrain
 from HiveNNet import NNetWrapper
 from utils import dotdict
@@ -42,12 +43,8 @@ class Coach:
         return int(np.random.choice(valid_indices))
 
     def _mcts_core(self, board: Board, player: int, nnet: NNetWrapper) -> int:
-        # 1) canonicalize
-        canon = self.game.getCanonicalForm(board, player)
-        # 2) run MCTS to get a π-vector
         mcts = MCTSBrain(self.game, nnet, self.args)
-        pi = mcts.getActionProb(canon, temp=0)
-        # 3) mask & pick
+        pi = mcts.getActionProb(board, temp=0)
         valid = self.game.getValidMoves(board, player)
         pi = pi * valid
         if pi.sum() > 0:
@@ -74,18 +71,17 @@ class Coach:
         board = self.game.getInitBoard()
         currentPlayer = 1  # 1 for White, 0 for Black.
         episodeStep = 0
+        player = 1 if board.current_player_color == PlayerColor.WHITE else 0
 
         while True:
             episodeStep += 1
             print("[EXE EPISODE] Original board:", board)
-            canonicalBoard = self.game.getCanonicalForm(board, currentPlayer)
-            print("[EXE EPISODE] Canonical board:", canonicalBoard)
 
             temp = 1 if episodeStep < self.tempThreshold else 0
 
             # Get move probabilities from MCTS.
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-            symmetries = self.game.getSymmetries(canonicalBoard, pi)
+            pi = self.mcts.getActionProb(board, temp=temp)
+            symmetries = self.game.getSymmetries(board, pi)
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)
                 trainExamples.append((b, p, 0.0))  # Use a placeholder 0.0 instead of None.
@@ -93,7 +89,7 @@ class Coach:
             
             # Check that the selected action is valid.
             action = np.random.choice(len(pi), p=pi)
-            valid_moves = self.game.getValidMoves(board, currentPlayer)
+            valid_moves = self.game.getValidMoves(board, player)
             if valid_moves[action] == 0:
                 print(f"[EXE EPISODE] Action {action} is invalid. Resampling from valid moves.")
                 valid_indices = np.nonzero(valid_moves)[0]
@@ -104,8 +100,8 @@ class Coach:
                 print("[EXE EPISODE] Resampled action:", action)
 
             print("[EXECUTE EPISODE] Randomly selected action: ", action)
-            board, currentPlayer = self.game.getNextState(board, currentPlayer, action)
-            r = self.game.getGameEnded(board, currentPlayer)
+            board, currentPlayer = self.game.getNextState(board, player, action)
+            r = self.game.getGameEnded(board, player)
             if r != 0:
                 # Now update outcome for all examples.
                 return [(b, p, r * ((-1) ** (1 != currentPlayer))) for (b, p, _) in trainExamples]

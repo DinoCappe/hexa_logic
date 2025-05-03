@@ -19,32 +19,25 @@ class GameWrapper:
 
     def getInitBoard(self) -> Board:
         return Board()
-    
-    def getCanonicalForm(self, board: Board, player: int) -> Board:
-        # print("  >>> getCanonicalForm: incoming board:", board, "player:", player)
-        if player == 1:
-            canon = board
-        else:
-            canon = board.invert_colors()
-        # print("  >>> getCanonicalForm: outgoing canon:", canon)
-        return canon
 
     def getNextState(self, board: Board, player: int, action: int) -> Tuple[Board,int]:
         # decode against the “real” board, not the canonical one
         move_str = board.decode_move_index(player, action)
 
-        # ----- NEW DEBUGGING ASSERTION -----
-        valid = board.valid_moves.split(";")
-        assert move_str in valid, (
-            f"DECODED move_str `{move_str}` not in board.valid_moves!\n"
-            f"  board was: {board}\n"
-            f"  valid_moves: {valid}"
+        # 1) Get the binary valid-move mask from the engine:
+        valid_mask = self.getValidMoves(board, player)
+
+        # 2) Assert the chosen action index is 1 in that mask:
+        if valid_mask[action] == 0:
+            raise ValueError(
+                f"Illegal action index {action} "
+                f"for player={player} on board {board}"
         )
-        # -----------------------------------
-        # print("  >>> getNextState: before play:", board, "action index:", action)
+
+        print("  >>> getNextState: before play:", board, "action index:", action)
         new = copy.deepcopy(board)
         new.play(move_str)
-        # print("  >>> getNextState: after play:", new, "next_player:", 1-player)
+        print("  >>> getNextState: after play:", new, "next_player:", 1-player)
         return new, 1-player
 
     def getGameEnded(self, board: Board, player: int) -> float:

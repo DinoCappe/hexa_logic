@@ -2,6 +2,7 @@ import logging
 from tqdm import tqdm
 from typing import Optional, Tuple
 from board import Board
+from enums import PlayerColor
 from utils import dotdict
 from gameWrapper import GameWrapper
 
@@ -43,7 +44,7 @@ class Arena:
                 return result
 
             it += 1
-
+            curPlayer = 1 if board.current_player_color == PlayerColor.WHITE else 0
             # ask the right agent for its move
             if curPlayer==1:
                 action = self.player1(board, curPlayer)
