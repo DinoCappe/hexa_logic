@@ -110,7 +110,7 @@ class NNetWrapper:
             
             avg_loss_pi = epoch_loss_pi / batch_count if batch_count > 0 else float('nan')
             avg_loss_v = epoch_loss_v / batch_count if batch_count > 0 else float('nan')
-            msg = f"Epoch {epoch}/{self.args.epochs}  Policy Loss = {avg_loss_pi:.4f}, Value Loss = {avg_loss_v:.4f}"
+            msg = f"Epoch {epoch+1}/{self.args.epochs}  Policy Loss = {avg_loss_pi:.4f}, Value Loss = {avg_loss_v:.4f}"
             print(msg)
             logging.info(msg)
 

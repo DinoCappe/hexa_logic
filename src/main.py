@@ -3,6 +3,7 @@ from utils import dotdict
 from coach import Coach
 from HiveNNet import NNetWrapper
 from gameWrapper import GameWrapper
+from trainExample import TrainExample
 
 import logging
 
@@ -16,7 +17,7 @@ logging.basicConfig(
 
 log = logging.getLogger(__name__)
 
-def main():
+def main(pre_training: bool = False):
     # Define hyperparameters and configuration.
     args = dotdict({
         'lr': 0.001,
@@ -47,16 +48,25 @@ def main():
     game = GameWrapper()
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
-    coach = Coach(game, nnet_wrapper, args)
-    
-    # Run a single self-play episode to generate training examples.
-    train_examples = coach.executeEpisode()
-    print(f"Self-play episode generated {len(train_examples)} training examples.")
-    
-    # Now, run the integrated learning loop for a couple of iterations.
-    print("Starting integrated learning loop...")
-    coach.learn()
-    print("Learning loop finished.")
+    if pre_training:
+        train_examples = TrainExample(game, nnet_wrapper)
+        input_path = 'utils/UHP_games/HV-Alfiesboy-WeakBot-2025-01-02-1034.pgn'
+        with open(input_path, 'r') as file:
+            content = file.read()
+        examples = train_examples._parse_game(content)
+        print(examples)
+        # TODO: Implement filtering logic based on brenching factor and other criteria
+    else:
+        coach = Coach(game, nnet_wrapper, args)
+        
+        # Run a single self-play episode to generate training examples.
+        train_examples = coach.executeEpisode()
+        print(f"Self-play episode generated {len(train_examples)} training examples.")
+        
+        # Now, run the integrated learning loop for a couple of iterations.
+        print("Starting integrated learning loop...")
+        coach.learn()
+        print("Learning loop finished.")
 
 if __name__ == "__main__":
-    main()
+    main(True)
