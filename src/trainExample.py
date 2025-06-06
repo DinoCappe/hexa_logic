@@ -35,6 +35,7 @@ class TrainExample:
             line = line[line.find('.') + 2:] # Skip the move number
             action = board.encode_move_string(line, player)
             pi = np.zeros(self.game.getActionSize(), dtype=np.float64) # Ludo: che ci va qua dentro?
+            # pi = self.mcts.getActionProb(board, temp=0)
             symmetries = self.game.getSymmetries(board, pi)
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)

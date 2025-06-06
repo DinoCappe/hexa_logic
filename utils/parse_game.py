@@ -92,6 +92,8 @@ if __name__ == '__main__':
     # Ensure the output directory exists
     os.makedirs(output_directory, exist_ok=True)
 
+    # TODO: Implement filtering logic based on brenching factor and other criteria
+
     for filename in os.listdir(input_directory):
         # Not clear what the "U" and "A" prefixes are for
         if filename.endswith('.sgf'):

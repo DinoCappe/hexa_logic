@@ -3,7 +3,7 @@ from utils import dotdict
 from coach import Coach
 from HiveNNet import NNetWrapper
 from gameWrapper import GameWrapper
-from trainExample import TrainExample
+from trainExampleWrapper import TrainExampleWrapper
 
 import logging
 
@@ -49,12 +49,8 @@ def main(pre_training: bool = False):
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
     if pre_training:
-        train_examples = TrainExample(game, nnet_wrapper)
-        input_path = 'utils/UHP_games/HV-Alfiesboy-WeakBot-2025-01-02-1034.pgn'
-        with open(input_path, 'r') as file:
-            content = file.read()
-        examples = train_examples._parse_game(content)
-        print(examples)
+        train_wrapper = TrainExampleWrapper('utils/UHP_games', game, nnet_wrapper)
+        train_wrapper.execute_training()
         # TODO: Implement filtering logic based on brenching factor and other criteria
     else:
         coach = Coach(game, nnet_wrapper, args)
