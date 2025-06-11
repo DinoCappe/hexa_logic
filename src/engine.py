@@ -1,10 +1,13 @@
 from typing import TypeGuard, Final, Optional
 from enums import Command
-from board import Board
+from board import Board, ACTION_SPACE_SIZE
 from game import Move
 from ai import Brain #, Random
 from copy import deepcopy
 from mcts import MCTSBrain
+from HiveNNet import NNetWrapper
+from utils import dotdict
+import torch
 
 class Engine():
   VERSION: Final[str] = "1.1.0"
@@ -13,9 +16,35 @@ Engine version.
 """
 
   def __init__(self) -> None:
+    args = dotdict({
+        'lr': 0.001,
+        'dropout': 0.3,
+        'epochs': 10,
+        'batch_size': 64,
+        'cuda': torch.cuda.is_available(),
+        'num_channels': 256,
+        'num_layers': 8,
+        'mcts_iterations': 100,   
+
+        'exploration_constant': 1.41,
+        'numEps': 2,                    
+        'maxlenOfQueue': 5,
+        'numMCTSSims': 10,          
+        'tempThreshold': 10,
+        'updateThreshold': 0.55,
+        'arenaCompare': 5,             
+        'numIters': 5,                 
+        'numItersForTrainExamplesHistory': 20,
+        'cpuct': 0,
+        'checkpoint': 'checkpoints',
+        'results': 'results'
+    })
+
     self.board: Optional[Board] = None
     # self.brain: Brain = Random()
-    self.brain: Brain = MCTSBrain(iterations=1000)
+    # TODO: Import a nnet checkpoint from a file if it exists.
+    self.nnet = NNetWrapper((14, 14), int(ACTION_SPACE_SIZE+1), args)
+    self.brain: Brain = MCTSBrain(nnet=self.nnet, args=args)#iterations=1000)
 
   def start(self) -> None:
     """
@@ -168,8 +197,12 @@ Engine version.
     :type value: str
     """
     if self.is_active(self.board):
-      # TODO: Check if restriction and value are in the correct format.
-      print(self.brain.calculate_best_move(deepcopy(self.board)))
+      if restriction == "time":
+        h, m, s = [int(t) for t in value.split(':')]
+        seconds = h * 3600 + m * 60 + s
+        print(self.brain.calculate_best_move(deepcopy(self.board), max_time=seconds))
+      else:
+        print(self.brain.calculate_best_move(deepcopy(self.board)))
 
   def play(self, move: str) -> None:
     """

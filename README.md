@@ -1,4 +1,4 @@
-# Hivemind
+# Hexalogic
 
 ## Description
 
@@ -7,7 +7,7 @@ The game engine logic is - sometimes loosely, sometimes strongly - inspired from
 
 Currently, it's a WIP. Future plans include designing an AI to play the game.
 
-The repository includes builds for both a fully-fledged documentation generated with Sphinx and the ready-to-use `HivemindEngine.exe`.
+The repository includes builds for both a fully-fledged documentation generated with Sphinx and the ready-to-use `HexalogicEngine.exe`.
 
 ## Documentation
 
@@ -41,10 +41,10 @@ There are two ways to use this Hive engine:
 
 1. Run [`engine.py`](/src/engine.py) from the command line or with VSCode and start using the console to interact with it.  
    The engine will be fully functional, but there won't be any graphical interface.
-2. Use the included `HivemindEngine.exe` (or build it yourself) along with [MzingaViewer](https://github.com/jonthysell/Mzinga/wiki/MzingaViewer).  
-   To do this, move `HivemindEngine.exe` into the same directory as `MzingaViewer.exe` and then follow the instructions [here](https://github.com/jonthysell/Mzinga/wiki/BuildingAnEngine), specifically `step 2 > iii`.
+2. Use the included `HexalogicEngine.exe` (or build it yourself) along with [MzingaViewer](https://github.com/jonthysell/Mzinga/wiki/MzingaViewer).  
+   To do this, move `HexalogicEngine.exe` into the same directory as `MzingaViewer.exe` and then follow the instructions [here](https://github.com/jonthysell/Mzinga/wiki/BuildingAnEngine), specifically `step 2 > iii`.
 
-To build the `HivemindEngine.exe` yourself, simply run the following command in the project root:
+To build the `HexalogicEngine.exe` yourself, simply run the following command in the project root:
 ```powershell
-pyinstaller ./src/engine.py --name HivemindEngine --noconsole --onefile
+pyinstaller ./src/engine.py --name HexalogicEngine --noconsole --onefile
 ```

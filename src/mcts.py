@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 from numpy.typing import NDArray
 from board import Board
 from ai import Brain
@@ -17,7 +17,7 @@ class MCTSBrain(Brain):
     Dictionary-based MCTS that caches Q-values, visit counts, 
     neural network policies, and valid moves for states.
     """
-    def __init__(self, game: GameWrapper, nnet: NNetWrapper, args: dotdict):
+    def __init__(self, game: Optional[GameWrapper] = None, nnet: Optional[NNetWrapper] = None, args: Optional[dotdict] = None):
         """
         Args:
             game: A game interface providing methods like stringRepresentation,
@@ -27,8 +27,13 @@ class MCTSBrain(Brain):
                   Must include:
                       - numMCTSSims: number of MCTS simulations per move
                       - cpuct: the exploration constant.
+            Expected calls only with optional game.
         """
-        self.game = game
+        if game is None:
+            # Ludo: Come vogliamo usare GameWrapper?
+            self.game = GameWrapper()
+        else:
+            self.game = game
         self.nnet = nnet
         self.args = args
         self.Qsa: Dict[Tuple[str, int], float] = {}    # Q-values for state-action pairs
@@ -44,6 +49,7 @@ class MCTSBrain(Brain):
         rawBoard: the actual game state
         temp: temperature
         """
+        # TODO: Loop until time limit
         for _ in range(self.args.numMCTSSims):
             self.search(rawBoard)
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
@@ -67,11 +73,12 @@ class MCTSBrain(Brain):
             return np.ones(len(counts), dtype=np.float64) / len(counts)
         return np.array([x / total for x in counts], dtype=np.float64)
 
-    def calculate_best_move(self, board: Board) -> str:
+    def calculate_best_move(self, board: Board, max_time: Optional[int] = None) -> str:
         """
         Runs MCTS on the given board state and returns the best move as a string.
         Uses getActionProb with temperature 0 for deterministic selection.
         """
+        # Should use max_time, maybe with signal (https://stackoverflow.com/questions/366682/how-to-limit-execution-time-of-a-function-call)
         probs = self.getActionProb(board, temp=0)
         player = 1 if board.current_player_color == PlayerColor.WHITE else 0
         valid_moves = self.game.getValidMoves(board, player)
