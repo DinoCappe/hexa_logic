@@ -17,12 +17,15 @@ class GameWrapper:
     A simple wrapper that adapts our Board class to the interface expected by Coach.
     """
 
-    def getInitBoard(self) -> Board:
+    def getInitBoard(self, expansions: bool = False) -> Board:
+        if expansions:
+            return Board("Base+MLP")
         return Board()
 
-    def getNextState(self, board: Board, player: int, action: int) -> Tuple[Board,int]:
+    def getNextState(self, board: Board, player: int, action: int, move_str: str = "") -> Tuple[Board,int]:
         # decode against the “real” board, not the canonical one
-        move_str = board.decode_move_index(player, action)
+        if move_str == "":
+            move_str = board.decode_move_index(player, action)
 
         # 1) Get the binary valid-move mask from the engine:
         valid_mask = self.getValidMoves(board, player)
@@ -91,7 +94,7 @@ class GameWrapper:
         """
         action_size = self.getActionSize()
         valid = np.zeros(action_size, dtype=np.float64)
-        valid_moves = board.valid_moves.split(";")
+        valid_moves = board.valid_moves_complete().split(";")  
         print("[GET VALID MOVES] Valid moves according to the engine: ", valid_moves)
         # Iterate over each valid move and set the corresponding index to 1.0.
         for move in valid_moves:

@@ -16,8 +16,8 @@ class TrainExampleWrapper:
                 with open(input_path, 'r') as file:
                     content = file.read()
                 try:
-                    examples = self.train_examples._parse_game(content)
-                    print(examples)
+                    _ = self.train_examples._parse_game(content)
                 except ValueError as e:
                     print(f"Error parsing {file}: {e}")
+                    return
                 # self.train_examples.train(content)

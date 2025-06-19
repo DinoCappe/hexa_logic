@@ -119,6 +119,14 @@ class Board():
     :rtype: str
     """
     return ";".join([self.stringify_move(move) for move in self._get_valid_moves()]) or Move.PASS
+  
+  def valid_moves_complete(self) -> str:
+    """
+    Current possible legal moves in a joined list of MoveStrings, including all combinations.
+
+    :rtype: str
+    """
+    return ";".join([self.stringify_move(move, True) for move in self._get_valid_moves()]) or Move.PASS
 
   def play(self, move_string: str) -> None:
     """
@@ -190,7 +198,7 @@ class Board():
     else:
       raise ValueError(f"The game has yet to begin")
 
-  def stringify_move(self, move: Optional[Move]) -> str:
+  def stringify_move(self, move: Optional[Move], all_combinations: bool = False) -> str:
     """
     Returns a MoveString from the given move.
 
@@ -203,15 +211,24 @@ class Board():
       moved: Bug = move.bug
       relative: Optional[Bug] = None
       direction: Optional[Direction] = None
+      result: str = ""
       if (dest_bugs := self._bugs_from_pos(move.destination)):
         relative = dest_bugs[-1]
+        result += Move.stringify(moved, relative, direction) + ";"
       else:
         for dir in Direction.flat():
-          if (neighbor_bugs := self._bugs_from_pos(self._get_neighbor(move.destination, dir))) and (neighbor_bug := neighbor_bugs[0]) != moved:
-            relative = neighbor_bug
-            direction = dir.opposite
-            break
-      return Move.stringify(moved, relative, direction)
+            for neighbor_bug in self._bugs_from_pos(self._get_neighbor(move.destination, dir)):
+              if neighbor_bug != moved:
+                relative = neighbor_bug
+                direction = dir.opposite
+                result += Move.stringify(moved, relative, direction) + ";"
+                if not all_combinations:
+                  break
+              if not all_combinations:
+                break
+      if not result:
+        result = Move.stringify(moved, None, None) + ";"
+      return result[:-1]
     return Move.PASS
 
   def encode_board(self, grid_size: int = 26) -> NDArray[np.int64]:
@@ -619,7 +636,7 @@ class Board():
     :type bug: Bug
     :param origin: Initial position of the bug piece.
     :type origin: Position
-    :param depth: Optional fixed depth of the move, defaults to 0.
+    :param depth: Optional fixed depth of the move, defaults to `0`.
     :type depth: int, optional
     :return: Set of valid sliding moves.
     :rtype: Set[Move]
@@ -637,9 +654,24 @@ class Board():
         stack.update(
           (neighbor, current_depth + 1)
           for direction in Direction.flat()
-          if (neighbor := self._get_neighbor(current, direction)) not in visited and not self._bugs_from_pos(neighbor) and bool(self._bugs_from_pos((right := self._get_neighbor(current, direction.right_of)))) != bool(self._bugs_from_pos((left := self._get_neighbor(current, direction.left_of)))) and right != origin != left
+          if (neighbor := self._get_neighbor(current, direction)) not in visited and not self._bugs_from_pos(neighbor) and self._check_for_door(origin, current, direction)
         )
     return {Move(bug, origin, destination) for destination in destinations if destination != origin}
+  
+  def _check_for_door(self, origin: Position, position: Position, direction: Direction) -> bool:
+    """
+    Checks whether a bug piece can slide from origin to position (no door formation).
+
+    :param origin: Initial position of the bug piece.
+    :type origin: Position
+    :param position: Destination position.
+    :type position: Position
+    :param direction: Moving direction.
+    :type direction: Direction
+    :return: Whether a bug piece can slide from origin to position.
+    :rtype: bool
+    """
+    return bool(self._bugs_from_pos((right := self._get_neighbor(position, direction.clockwise)))) != bool(self._bugs_from_pos((left := self._get_neighbor(position, direction.anticlockwise)))) and right != origin != left
 
   def _get_beetle_moves(self, bug: Bug, origin: Position, virtual: bool = False) -> Set[Move]:
     """
@@ -768,7 +800,7 @@ class Board():
         position = self._get_neighbor(origin, direction)
         # A Pillbug can move another bug piece only if it's not stacked, it's not the last moved piece, it can be moved without breaking the hive, and it's not obstructed in moving above the Pillbug itself
         if len(bugs := self._bugs_from_pos(position)) == 1 and self._was_not_last_moved(neighbor := bugs[-1]) and self._can_move_without_breaking_hive(position) and Move(neighbor, position, origin) in self._get_beetle_moves(neighbor, position):
-          moves.update(Move(neighbor, position, move.destination) for move in self._get_beetle_moves(neighbor, position, True) if move.destination in empty_positions)
+          moves.update(Move(neighbor, position, move.destination) for move in self._get_beetle_moves(neighbor, origin, True) if move.destination in empty_positions)
     return moves
 
   def _can_move_without_breaking_hive(self, position: Position) -> bool:
@@ -831,6 +863,7 @@ class Board():
     :raises ValueError: If move_string is not a valid MoveString.
     :return: Move.
     :rtype: Optional[Move]
+    wL wG1/;wL wG1-;wA1 wP/;wA1 \\bS2;wL wA1-;wA1 \\bQ;wA1 -bQ;wA1 wG1\\;wG2 /wS1;wL /wG1;wL bS2\\;wG2 bS2/;wG2 \\wG1;wB2 bS2/;wB2 \\wG1;wA2 wP/;wA2 \\bS2;wA1 -bS1;wA1 /wS2;wA1 -wQ;wA1 /bS1;wA1 wM/;wA1 \\wB1;wL \\wA1;wA2 wG1\\;wA1 wS1\\;wA1 bB2\\;wA1 bS1-;wA1 wQ/;wA1 \\wP;wS1 /bS2;wS1 wP\\;wS1 bL-;wA1 \\wS2;wB2 wP/;wB2 \\bS2;wA2 wS1\\;wA2 \\wS2;wA2 wA1/;wA1 wG1/;wA1 -bM;wA1 /bQ;wA1 wG1-;wB2 wP;wA1 /wG1;wA1 bS2\\;wA2 wG1/;wA2 wG1-;wG2 wP/;wG2 \\bS2;wA2 wA1-;wA1 bQ/;wA1 bQ-;wA1 bM/;wA1 \\wM;wA1 /bM;wA1 -wS1;wA1 /wM;wA1 bM\\;wA2 /wG1;wA2 bS2\\;wG2 wG1\\;wA1 bL\\;wG2 wA1/;wG2 wS1\\;wS2 wA1/;wA2 \\wA1;bL /bS2;bL wP\\;wB2 /wG1;wB2 bS2\\;wG2 \\wS2;wL -wS2;wG2 wG1/;wG2 wG1-;wA1 /bL;wA1 wB1\\;wA1 wS1-;wG2 /wG1;wG2 bS2\\;wG2 wA1-;wS2 bQ-;wS2 bM/;wS2 \\wM;wL /wS1;wL bS2/;wL \\wG1;wA1 bB2-;wG2 \\wA1;wA1 /bS2;wA1 wP\\;wA1 bL-;wA1 -wS2;wS1 -bM;wS1 /bQ;wA2 -wS2;wA1 /wS1;wG1 -wQ;wG1 /bS1;wG1 wM/;wG1 \\wB1;wB2 /bS2;wB2 wP\\;wB2 bL-;wL wP/;wL \\bS2;wA1 bS2/;wA1 \\wG1;wL wG1\\;wA2 /wS1;wL wS1\\;wA2 bS2/;wA2 \\wG1;wA1 wS2/;wA1 \\bB2;wL wA1/;wG2 -wS2;wL \\wS2;wB2 wG1
     """
     if move_string == Move.PASS:
       if not self._get_valid_moves():

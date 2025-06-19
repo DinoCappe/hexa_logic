@@ -331,6 +331,24 @@ class Direction(StrEnum):
         return self
       case _:
         return list(Direction)[(self.delta_index + 5) % 6]
+      
+  @property
+  def clockwise(self):
+    """
+    Direction to the right (clockwise).
+
+    :rtype: Direction
+    """
+    return list(Direction)[(list(Direction).index(self) + 5) % 6]
+
+  @property
+  def anticlockwise(self):
+    """
+    Direction to the left (anticlockwise).
+
+    :rtype: Direction
+    """
+    return list(Direction)[(list(Direction).index(self) + 1) % 6]
 
   @property
   def delta_index(self) -> int:
