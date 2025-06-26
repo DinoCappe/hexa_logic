@@ -84,7 +84,13 @@ class NNetWrapper:
                 
                 # Encode each board using its encode_board method.
                 # Ensure each encoded board has shape (4, board_size, board_size)
-                encoded_boards = [board.encode_board(grid_size=self.board_size[0]) for board in batch_boards]
+                encoded_boards = []
+                for b in batch_boards:
+                    if isinstance(b, np.ndarray):
+                        encoded_boards.append(b)
+                    else:
+                        # b is a Board instance
+                        encoded_boards.append(b.encode_board(grid_size=self.board_size[0]))
                 boards_tensor = torch.FloatTensor(np.array(encoded_boards))
                 target_pis = torch.FloatTensor(np.array(batch_pis))
                 target_vs = torch.FloatTensor(np.array(batch_vs))

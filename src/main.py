@@ -30,15 +30,15 @@ def main(pre_training: bool = False):
         'mcts_iterations': 100,   
 
         'exploration_constant': 1.41,
-        'numEps': 2,                    
-        'maxlenOfQueue': 5,
-        'numMCTSSims': 10,          
-        'tempThreshold': 10,
+        'numEps': 10,                    
+        'maxlenOfQueue': 500,
+        'numMCTSSims': 25,          
+        'tempThreshold': 15,
         'updateThreshold': 0.55,
-        'arenaCompare': 5,             
+        'arenaCompare': 20,             
         'numIters': 5,                 
-        'numItersForTrainExamplesHistory': 20,
-        'cpuct': 0,
+        'numItersForTrainExamplesHistory': 5,
+        'cpuct': 0.8,
         'checkpoint': 'checkpoints',
         'results': 'results'
     })
@@ -48,21 +48,21 @@ def main(pre_training: bool = False):
     game = GameWrapper()
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
-    if pre_training:
-        train_wrapper = TrainExampleWrapper('utils/UHP_games', game, nnet_wrapper)
-        train_wrapper.execute_training()
-        # TODO: Implement filtering logic based on brenching factor and other criteria
-    else:
-        coach = Coach(game, nnet_wrapper, args)
-        
-        # Run a single self-play episode to generate training examples.
-        train_examples = coach.executeEpisode()
-        print(f"Self-play episode generated {len(train_examples)} training examples.")
-        
-        # Now, run the integrated learning loop for a couple of iterations.
-        print("Starting integrated learning loop...")
-        coach.learn()
-        print("Learning loop finished.")
+    # if pre_training:
+        # train_wrapper = TrainExampleWrapper('../utils/UHP_games', game, nnet_wrapper)
+        # train_wrapper.execute_training()
+        # TODO: Implement filtering logic based on branching factor and other criteria
+    #else:
+    coach = Coach(game, nnet_wrapper, args)
+    
+    # Run a single self-play episode to generate training examples.
+    train_examples = coach.executeEpisode()
+    print(f"Self-play episode generated {len(train_examples)} training examples.")
+    
+    # Now, run the integrated learning loop for a couple of iterations.
+    print("Starting integrated learning loop...")
+    coach.learn()
+    print("Learning loop finished.")
 
 if __name__ == "__main__":
     main(True)

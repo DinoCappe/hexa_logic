@@ -12,6 +12,8 @@ from utils import dotdict
 from typing import Deque
 from arena import Arena
 from gameWrapper import *
+import pickle
+import glob
 
 log = logging.getLogger(__name__)
 
@@ -115,6 +117,13 @@ class Coach:
         numIters = self.args.numIters
         model_iteration = 1
 
+        history_path = f"{self.args.results}/selfplay_iter_*.pkl"
+        files = sorted(glob.glob(history_path))
+        if files:
+            with open(files[-1], "rb") as f:
+                self.trainExamplesHistory = pickle.load(f)
+            print(f"Loaded {sum(len(d) for d in self.trainExamplesHistory)} examples from disk")
+
         # Evaluate initial performance against a random baseline.
         arena = Arena(self.random_agent_action,
               self.mcts_agent_action,
@@ -172,4 +181,7 @@ class Coach:
                     csvwriter = csv.writer(outfile)
                     csvwriter.writerow([model_iteration, wins_zero, wins_random])
             logging.info("Iteration %d completed. Collected examples: %d", i, len(converted_examples))
+
+            with open(f"{self.args.results}/selfplay_iter_{i}.pkl", "wb") as f:
+                pickle.dump(self.trainExamplesHistory, f)
 
