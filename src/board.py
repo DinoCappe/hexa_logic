@@ -643,15 +643,15 @@ class Board():
     """
     destinations: Set[Position] = set()
     visited: Set[Position] = set()
-    stack: Set[tuple[Position, int]] = {(origin, 0)}
+    queue: Set[tuple[Position, int]] = {(origin, 0)}
     unlimited_depth = depth == 0
-    while stack:
-      current, current_depth = stack.pop()
+    while queue:
+      current, current_depth = queue.pop()
       visited.add(current)
       if unlimited_depth or current_depth == depth:
         destinations.add(current)
       if unlimited_depth or current_depth < depth:
-        stack.update(
+        queue.update(
           (neighbor, current_depth + 1)
           for direction in Direction.flat()
           if (neighbor := self._get_neighbor(current, direction)) not in visited and not self._bugs_from_pos(neighbor) and self._check_for_door(origin, current, direction)
@@ -671,7 +671,16 @@ class Board():
     :return: Whether a bug piece can slide from origin to position.
     :rtype: bool
     """
-    return bool(self._bugs_from_pos((right := self._get_neighbor(position, direction.clockwise)))) != bool(self._bugs_from_pos((left := self._get_neighbor(position, direction.anticlockwise)))) and right != origin != left
+    right = self._get_neighbor(position, direction.clockwise)
+    bug_on_right = False
+    if right != origin:
+      bug_on_right = bool(self._bugs_from_pos(right))
+    left = self._get_neighbor(position, direction.anticlockwise)
+    bug_on_left = False
+    if left != origin:
+      bug_on_left = bool(self._bugs_from_pos(left))
+    return bug_on_right != bug_on_left
+
 
   def _get_beetle_moves(self, bug: Bug, origin: Position, virtual: bool = False) -> Set[Move]:
     """
