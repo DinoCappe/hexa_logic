@@ -8,9 +8,24 @@ from gameWrapper import GameWrapper
 from HiveNNet import NNetWrapper
 from utils import dotdict
 from enums import PlayerColor
+import signal
+from contextlib import contextmanager
 # from copy import deepcopy
 
 EPS = 1e-8
+class TimeoutException(Exception): pass
+
+@contextmanager
+# Works only on Unix-like systems (Linux, macOS) and single-threaded Python programs.
+def time_limit(seconds: float):
+    def signal_handler(signum, frame):
+        raise TimeoutException("Timed out!")
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
 
 class MCTSBrain(Brain):
     """
@@ -44,14 +59,21 @@ class MCTSBrain(Brain):
         self.Es: Dict[str, float] = {}                   # Game ended status for states
         self.Vs: Dict[str, NDArray[np.float64]] = {}       # Valid moves for states
 
-    def getActionProb(self, rawBoard: Board, temp: float = 1) -> NDArray[np.float64]:
+    def getActionProb(self, rawBoard: Board, temp: float = 1, max_time: Optional[float] = None) -> NDArray[np.float64]:
         """
         rawBoard: the actual game state
         temp: temperature
         """
-        # TODO: Loop until time limit
-        for _ in range(self.args.numMCTSSims):
-            self.search(rawBoard)
+        if max_time is None:
+            for _ in range(self.args.numMCTSSims):
+                self.search(rawBoard)
+        else:
+            with time_limit(max_time):
+                try:
+                    while True:
+                        self.search(rawBoard)
+                except TimeoutException:
+                    pass
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
         if player == 1:
             s = rawBoard.stringRepresentation()
@@ -73,13 +95,12 @@ class MCTSBrain(Brain):
             return np.ones(len(counts), dtype=np.float64) / len(counts)
         return np.array([x / total for x in counts], dtype=np.float64)
 
-    def calculate_best_move(self, board: Board, max_time: Optional[int] = None) -> str:
+    def calculate_best_move(self, board: Board, max_time: Optional[float] = None) -> str:
         """
         Runs MCTS on the given board state and returns the best move as a string.
         Uses getActionProb with temperature 0 for deterministic selection.
         """
-        # Should use max_time, maybe with signal (https://stackoverflow.com/questions/366682/how-to-limit-execution-time-of-a-function-call)
-        probs = self.getActionProb(board, temp=0)
+        probs = self.getActionProb(board, temp=0, max_time=max_time)
         player = 1 if board.current_player_color == PlayerColor.WHITE else 0
         valid_moves = self.game.getValidMoves(board, player)
         masked_probs = probs * valid_moves
