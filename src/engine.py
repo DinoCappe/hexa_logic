@@ -7,6 +7,7 @@ from copy import deepcopy
 from mcts import MCTSBrain
 from HiveNNet import NNetWrapper
 from utils import dotdict
+# import time
 import torch
 
 class Engine():
@@ -204,9 +205,13 @@ Engine version.
     """
     if self.is_active(self.board):
       if restriction == "time":
+        # current_time = time.time()
         h, m, s = [int(t) for t in value.split(':')]
         seconds = h * 3600 + m * 60 + s
+        seconds *= 0.9  # Adjust seconds to allow for some buffer
         print(self.brain.calculate_best_move(deepcopy(self.board), max_time=seconds))
+        # Debug: check the real time taken for the move calculation
+        # print(f"Time taken: {time.time() - current_time:.2f} seconds")
       else:
         print(self.brain.calculate_best_move(deepcopy(self.board)))
 
