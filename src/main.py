@@ -4,6 +4,8 @@ from coach import Coach
 from HiveNNet import NNetWrapper
 from gameWrapper import GameWrapper
 from trainExampleWrapper import TrainExampleWrapper
+import os
+import multiprocessing as mp
 
 import logging
 
@@ -17,6 +19,7 @@ logging.basicConfig(
 
 log = logging.getLogger(__name__)
 
+
 def main(pre_training: bool = False):
     # Define hyperparameters and configuration.
     args = dotdict({
@@ -25,23 +28,26 @@ def main(pre_training: bool = False):
         'epochs': 10,
         'batch_size': 64,
         'cuda': torch.cuda.is_available(),
+        'distributed': False,
         'num_channels': 256,
         'num_layers': 8,
         'mcts_iterations': 100,   
 
         'exploration_constant': 1.41,
-        'numEps': 10,                    
-        'maxlenOfQueue': 500,
+        'numEps': 100,                    
+        'maxlenOfQueue': 10000,
         'numMCTSSims': 25,          
         'tempThreshold': 15,
         'updateThreshold': 0.55,
-        'arenaCompare': 20,             
-        'numIters': 5,                 
+        'arenaCompare': 40,             
+        'numIters': 100,                 
         'numItersForTrainExamplesHistory': 5,
         'cpuct': 0.8,
         'checkpoint': 'checkpoints',
         'results': 'results'
     })
+    os.makedirs(args.checkpoint, exist_ok=True)
+    os.makedirs(args.results, exist_ok=True)
     
     board_size = (14, 14)
     
@@ -65,4 +71,5 @@ def main(pre_training: bool = False):
     print("Learning loop finished.")
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn", force=True)
     main(True)

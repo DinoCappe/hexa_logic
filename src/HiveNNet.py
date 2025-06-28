@@ -9,6 +9,41 @@ from numpy.typing import NDArray
 import random
 import os
 import logging
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
+
+def setup_distributed():
+    dist.init_process_group(backend="nccl")
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    return local_rank
+
+class SelfPlayDataset(Dataset):
+    def __init__(self, examples: list[tuple[NDArray[np.float64], NDArray[np.float64], float]], board_size: int):
+        self.boards, self.pis, self.zs = zip(*examples)
+        # pre‐encode any Board objects into raw numpy arrays
+        self.encoded = []
+        for b in self.boards:
+            if isinstance(b, np.ndarray):
+                self.encoded.append(b)
+            else:
+                # b is a Board instance
+                self.encoded.append(b.encode_board(grid_size=board_size))
+        self.encoded = np.stack(self.encoded)              # shape (N,C,H,W)
+        self.pis     = np.stack(self.pis)                  # shape (N,action_size)
+        self.zs      = np.array(self.zs, dtype=np.float32) # shape (N,)
+
+    def __len__(self):
+        return len(self.zs)
+
+    def __getitem__(self, idx):
+        # return torch tensors
+        return (
+            torch.from_numpy(self.encoded[idx]).float(),
+            torch.from_numpy(self.pis[idx]).float(),
+            torch.tensor(self.zs[idx]).float(),
+        )
 
 class NNetWrapper:
     def __init__(self, board_size: tuple[int, int], action_size: int, args: dotdict):
@@ -18,16 +53,30 @@ class NNetWrapper:
             action_size: The number of possible moves.
             args: An arguments object with hyperparameters (e.g., num_channels, num_layers, dropout, cuda, etc.).
         """
+        self.args = args
+        self.distributed = args.distributed
+
+        if self.distributed:
+            self.local_rank = setup_distributed()
+            self.device     = torch.device(f"cuda:{self.local_rank}")
+        else:
+            self.local_rank = 0
+            self.device     = torch.device("cuda" if args.cuda else "cpu")
+        
         self.board_size = board_size
         self.action_size = action_size
-        self.args = args
         self.nnet = HiveNNet(board_size, action_size,
                               num_channels=args.num_channels,
                               num_layers=args.num_layers,
                               dropout=args.dropout,
                               )
-        if args.cuda:
-            self.nnet.cuda()
+        
+        self.nnet.to(self.device)
+        if args.distributed:
+            local_rank = int(os.environ["LOCAL_RANK"])
+            print(f"[rank {local_rank}] about to wrap model in DDP")
+            self.nnet = DDP(self.nnet, device_ids=[self.local_rank])
+            print(f"[rank {local_rank}] DDP initialized")
     
     def predict(self, board: Board):
         """
@@ -49,76 +98,73 @@ class NNetWrapper:
         
         return torch.exp(pi).detach().cpu().numpy()[0], v.detach().cpu().numpy()[0]  # type: ignore
     
-    def train(self, examples: list[tuple[NDArray[np.float64], NDArray[np.float64], float]]):
+    def train(self, examples):
         """
-        Train the network on a set of examples.
-        
-        Each example is a tuple:
-            (board, target_policy, target_value)
-        where:
-            board: a Board object,
-            target_policy: a vector of move probabilities (numpy array, shape (action_size,)),
-            target_value: a scalar value.
-        
-        This method uses Adam optimizer and trains for a fixed number of epochs.
+        Train the network on a set of examples, logging more details so we can
+        see exactly how many examples/batches we’re processing and get epoch‐by‐epoch stats.
         """
-        optimizer = optim.Adam(self.nnet.parameters(), lr=self.args['lr'])
+        optimizer  = optim.Adam(self.nnet.parameters(), lr=self.args['lr'])
         batch_size = self.args['batch_size']
-        epochs = self.args['epochs']
-        
+        epochs     = self.args['epochs']
+
+        # --- create the dataset and loader
+        ds = SelfPlayDataset(examples, board_size=self.board_size[0])
+        num_examples = len(ds)
+        if self.distributed:
+            sampler = DistributedSampler(ds)
+        else:
+            sampler = None
+
+        loader = DataLoader(
+            ds,
+            batch_size=batch_size,
+            sampler=sampler,
+            shuffle=(sampler is None),
+            num_workers=4,
+            pin_memory=True
+        )
+        num_batches = len(loader)
+
+        # Log overall dataset/loader stats
+        logging.info(f"STARTING TRAINING on {num_examples} examples, {num_batches} batches per epoch, {epochs} epochs")
+        print(f"[TRAIN] examples={num_examples}, batches/epoch={num_batches}, epochs={epochs}")
+
         self.nnet.train()
 
-        logging.info('STARTING TRAINING')
-        
-        for epoch in range(epochs):
-            print(f"Epoch {epoch+1}/{epochs}")
-            # Shuffle examples
-            random.shuffle(examples)
-            batch_count = len(examples) // batch_size
+        for epoch in range(1, epochs+1):
+            if self.distributed:
+                sampler.set_epoch(epoch)
+
             epoch_loss_pi = 0.0
-            epoch_loss_v = 0.0
-            
-            for i in range(batch_count):
-                batch = examples[i * batch_size:(i + 1) * batch_size]
-                batch_boards, batch_pis, batch_vs = zip(*batch)
-                
-                # Encode each board using its encode_board method.
-                # Ensure each encoded board has shape (4, board_size, board_size)
-                encoded_boards = []
-                for b in batch_boards:
-                    if isinstance(b, np.ndarray):
-                        encoded_boards.append(b)
-                    else:
-                        # b is a Board instance
-                        encoded_boards.append(b.encode_board(grid_size=self.board_size[0]))
-                boards_tensor = torch.FloatTensor(np.array(encoded_boards))
-                target_pis = torch.FloatTensor(np.array(batch_pis))
-                target_vs = torch.FloatTensor(np.array(batch_vs))
-                
-                if self.args['cuda']:
-                    boards_tensor = boards_tensor.cuda()
-                    target_pis = target_pis.cuda()
-                    target_vs = target_vs.cuda()
-                
+            epoch_loss_v  = 0.0
+            nbatches      = 0
+
+            logging.info(f"  → Epoch {epoch}/{epochs} starting")
+            print(f"[TRAIN] Epoch {epoch}/{epochs} ...")
+
+            for batch_idx, (boards_tensor, target_pis, target_vs) in enumerate(loader, start=1):
+                boards_tensor = boards_tensor.to(self.device)
+                target_pis    = target_pis.to(self.device)
+                target_vs     = target_vs.to(self.device)
+
                 out_pi, out_v = self.nnet(boards_tensor)
-                # Compute policy loss: negative log likelihood (cross entropy)
-                loss_pi = -torch.sum(target_pis * out_pi) / target_pis.size(0)
-                # Compute value loss: Mean squared error
-                loss_v = torch.sum((target_vs - out_v.view(-1)) ** 2) / target_vs.size(0)
-                total_loss = loss_pi + loss_v
-                
+                loss_pi = - (target_pis * out_pi.log()).sum(dim=1).mean()
+                loss_v  = (target_vs - out_v.view(-1)).pow(2).mean()
+                loss    = loss_pi + loss_v
+
                 optimizer.zero_grad()
-                total_loss.backward() # type: ignore
-                optimizer.step() # type: ignore
-                
+                loss.backward()
+                optimizer.step()
+
                 epoch_loss_pi += loss_pi.item()
-                epoch_loss_v += loss_v.item()
-            
-            avg_loss_pi = epoch_loss_pi / batch_count if batch_count > 0 else float('nan')
-            avg_loss_v = epoch_loss_v / batch_count if batch_count > 0 else float('nan')
-            msg = f"Epoch {epoch+1}/{self.args.epochs}  Policy Loss = {avg_loss_pi:.4f}, Value Loss = {avg_loss_v:.4f}"
-            print(msg)
+                epoch_loss_v  += loss_v.item()
+                nbatches      += 1
+
+            avg_pi = epoch_loss_pi / nbatches
+            avg_v  = epoch_loss_v  / nbatches
+            msg = f"Epoch {epoch}/{epochs} complete — avg π loss={avg_pi:.4f}, avg v loss={avg_v:.4f}"
             logging.info(msg)
+            print(msg)
 
     def save_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)

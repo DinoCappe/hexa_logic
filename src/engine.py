@@ -22,6 +22,7 @@ Engine version.
         'epochs': 10,
         'batch_size': 64,
         'cuda': torch.cuda.is_available(),
+        'distributed': False,
         'num_channels': 256,
         'num_layers': 8,
         'mcts_iterations': 100,   
@@ -40,11 +41,16 @@ Engine version.
         'results': 'results'
     })
 
+    self.nnet = NNetWrapper((14, 14), ACTION_SPACE_SIZE+1, args)
+    
+    try:
+        self.nnet.load_checkpoint(folder=args.checkpoint, filename='best.pth.tar')
+        print(f"info loaded checkpoint from {args.checkpoint}/best.pth.tar")
+    except FileNotFoundError:
+        print("info no checkpoint found, using random init")
+
+    self.brain = MCTSBrain(nnet=self.nnet, args=args)
     self.board: Optional[Board] = None
-    # self.brain: Brain = Random()
-    # TODO: Import a nnet checkpoint from a file if it exists.
-    self.nnet = NNetWrapper((14, 14), int(ACTION_SPACE_SIZE+1), args)
-    self.brain: Brain = MCTSBrain(nnet=self.nnet, args=args)#iterations=1000)
 
   def start(self) -> None:
     """

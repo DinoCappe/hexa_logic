@@ -1,6 +1,8 @@
 import logging
 from collections import deque
 from random import shuffle
+from concurrent.futures import ThreadPoolExecutor
+import torch.distributed as dist
 
 from tqdm import tqdm
 import csv
@@ -34,6 +36,7 @@ class Coach:
         self.numEps = args.numEps  
         self.maxlenOfQueue = args.maxlenOfQueue  
         self.tempThreshold = args.tempThreshold
+        self.local_rank = dist.get_rank() if args.distributed else 0
 
     def random_agent_action(self, board: Board, player: int) -> int:
         """
@@ -67,6 +70,22 @@ class Coach:
         Callable[[Board,int],int].
         """
         return self._mcts_core(board, player, self.nnet)
+    
+    def _self_play_worker(self, seed: int) -> list[TrainingExample]:
+        np.random.seed(seed)
+        # create fresh MCTS for this thread
+        mcts = MCTSBrain(self.game, self.nnet, self.args)
+        self.mcts = mcts
+        return self.executeEpisode()
+
+    def executeEpisodePool(self, n_games_per_rank: int = 4) -> list[TrainingExample]:
+        """Run N independent self‐play games in parallel threads, collect all examples."""
+        seeds = [self.local_rank * 10000 + i for i in range(n_games_per_rank)]
+        with ThreadPoolExecutor(max_workers=n_games_per_rank) as pool:
+            # map returns an iterator of lists
+            results = list(pool.map(self._self_play_worker, seeds))
+
+        return [ex for sub in results for ex in sub]
 
     def executeEpisode(self) -> List[TrainingExample]:
         trainExamples: List[TrainingExample] = []
@@ -117,71 +136,92 @@ class Coach:
         numIters = self.args.numIters
         model_iteration = 1
 
+        if self.args.distributed:
+            world_size = dist.get_world_size()
+            rank = dist.get_rank()
+        else:
+            world_size = 1
+            rank = 0
+
         history_path = f"{self.args.results}/selfplay_iter_*.pkl"
         files = sorted(glob.glob(history_path))
         if files:
             with open(files[-1], "rb") as f:
                 self.trainExamplesHistory = pickle.load(f)
-            print(f"Loaded {sum(len(d) for d in self.trainExamplesHistory)} examples from disk")
+            print(f"[R{rank}] Loaded {sum(len(d) for d in self.trainExamplesHistory)} examples from disk")
 
         # Evaluate initial performance against a random baseline.
-        arena = Arena(self.random_agent_action,
-              self.mcts_agent_action,
-              self.game)
-        wins_random, wins_zero, draws = arena.playGames(5)
-        logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
+        if rank == 0:
+            arena = Arena(self.random_agent_action,
+                self.mcts_agent_action,
+                self.game)
+            wins_random, wins_zero, draws = arena.playGames(5)
+            logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
 
         for i in range(1, numIters + 1):
-            logging.info('Starting Iteration %d ...', i)
+            logging.info(f'[R{rank}] Starting Iteration {i} ...')
             iterationTrainExamples: Deque[TrainingExample] = deque([], maxlen=self.maxlenOfQueue)
-            for _ in tqdm(range(self.numEps), desc="Self-play episodes"):
-                # Reset MCTS for each self-play game.
-                self.mcts = MCTSBrain(self.game, self.nnet, self.args)
-                examples = self.executeEpisode()
+
+            eps_per_rank = self.args.numEps // world_size
+            for _ in range(eps_per_rank):
+                examples = self.executeEpisodePool()
                 iterationTrainExamples.extend(examples)
-            self.trainExamplesHistory.append(iterationTrainExamples)
-            if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
-                logging.warning("Removing oldest training examples. History length = %d", len(self.trainExamplesHistory))
-                self.trainExamplesHistory.pop(0)
 
-            # Combine training examples from history.
-            trainExamples: List[TrainingExample] = []
-            for ex in self.trainExamplesHistory:
-                trainExamples.extend(ex)
-            shuffle(trainExamples)
+            all_examples = [None] * world_size
+            dist.all_gather_object(all_examples, list(iterationTrainExamples))
+            # now all_examples is a list of lists; flatten it:
+            combined_iteration = []
+            for sub in all_examples:
+                combined_iteration.extend(sub)
+
+            if rank == 0:
+                self.trainExamplesHistory.append(combined_iteration)
+                if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+                    self.trainExamplesHistory.pop(0)
+
+                # combine history
+                trainExamples = []
+                for ex in self.trainExamplesHistory:
+                    trainExamples.extend(ex)
+                shuffle(trainExamples)
             
-            converted_examples = [(b, p, float(o)) for (b, p, o) in trainExamples]
-            
-            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            
-            self.nnet.train(converted_examples)
-            
-            logging.info('PITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(self.mcts_prev_agent_action,   # player1 ⇒ old net
-                self.mcts_agent_action,                  # player2 ⇒ new net
-                self.game)
-            
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
-            logging.info('NEW/PREV WINS : %d / %d ; DRAWS : %d', nwins, pwins, draws)
-            if (pwins + nwins == 0) or (float(nwins) / (pwins + nwins) < self.args.updateThreshold):
-                logging.info('REJECTING NEW MODEL')
-                self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            else:
-                logging.info('ACCEPTING NEW MODEL')
-                model_iteration += 1
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
-                logging.info('PITTING AGAINST RANDOM BASELINE')
-                arena = Arena(self.random_agent_action,
-                    self.mcts_agent_action,     # new net
+                converted_examples = [(b, p, float(o)) for (b, p, o) in trainExamples]
+                
+                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                
+                self.nnet.train(trainExamples)      # converted examples used later for storage purposes
+                
+                logging.info('PITTING AGAINST PREVIOUS VERSION')
+                arena = Arena(self.mcts_prev_agent_action,   # player1 ⇒ old net
+                    self.mcts_agent_action,                  # player2 ⇒ new net
                     self.game)
-                wins_random, wins_zero, draws = arena.playGames(50)
-                logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
-                with open(f"{self.args.results}/random_baseline.csv", 'a') as outfile:
-                    csvwriter = csv.writer(outfile)
-                    csvwriter.writerow([model_iteration, wins_zero, wins_random])
-            logging.info("Iteration %d completed. Collected examples: %d", i, len(converted_examples))
+                
+                pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+                logging.info('NEW/PREV WINS : %d / %d ; DRAWS : %d', nwins, pwins, draws)
+                if (pwins + nwins == 0) or (float(nwins) / (pwins + nwins) < self.args.updateThreshold):
+                    logging.info('REJECTING NEW MODEL')
+                    self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                else:
+                    logging.info('ACCEPTING NEW MODEL')
+                    model_iteration += 1
+                    self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+                    logging.info('PITTING AGAINST RANDOM BASELINE')
+                    arena = Arena(self.random_agent_action,
+                        self.mcts_agent_action,     # new net
+                        self.game)
+                    wins_random, wins_zero, draws = arena.playGames(50)
+                    logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
+                    with open(f"{self.args.results}/random_baseline.csv", 'a') as outfile:
+                        csvwriter = csv.writer(outfile)
+                        csvwriter.writerow([model_iteration, wins_zero, wins_random])
+                logging.info("Iteration %d completed. Collected examples: %d", i, len(converted_examples))
 
-            with open(f"{self.args.results}/selfplay_iter_{i}.pkl", "wb") as f:
-                pickle.dump(self.trainExamplesHistory, f)
+                with open(f"{self.args.results}/selfplay_iter_{i}.pkl", "wb") as f:
+                    pickle.dump(self.trainExamplesHistory, f)
 
+            if self.args.distributed:
+                dist.barrier()
+
+        if self.args.distributed:
+            dist.destroy_process_group()
