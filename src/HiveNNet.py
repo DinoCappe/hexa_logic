@@ -74,9 +74,9 @@ class NNetWrapper:
         self.nnet.to(self.device)
         if args.distributed:
             local_rank = int(os.environ["LOCAL_RANK"])
-            print(f"[rank {local_rank}] about to wrap model in DDP")
+            logging.debug(f"[rank {local_rank}] about to wrap model in DDP")
             self.nnet = DDP(self.nnet, device_ids=[self.local_rank])
-            print(f"[rank {local_rank}] DDP initialized")
+            logging.debug(f"[rank {local_rank}] DDP initialized")
     
     def predict(self, board: Board):
         """
@@ -127,7 +127,7 @@ class NNetWrapper:
 
         # Log overall dataset/loader stats
         logging.info(f"STARTING TRAINING on {num_examples} examples, {num_batches} batches per epoch, {epochs} epochs")
-        print(f"[TRAIN] examples={num_examples}, batches/epoch={num_batches}, epochs={epochs}")
+        logging.debug(f"[TRAIN] examples={num_examples}, batches/epoch={num_batches}, epochs={epochs}")
 
         self.nnet.train()
 
@@ -140,7 +140,7 @@ class NNetWrapper:
             nbatches      = 0
 
             logging.info(f"  → Epoch {epoch}/{epochs} starting")
-            print(f"[TRAIN] Epoch {epoch}/{epochs} ...")
+            logging.debug(f"[TRAIN] Epoch {epoch}/{epochs} ...")
 
             for batch_idx, (boards_tensor, target_pis, target_vs) in enumerate(loader, start=1):
                 boards_tensor = boards_tensor.to(self.device)
@@ -164,15 +164,15 @@ class NNetWrapper:
             avg_v  = epoch_loss_v  / nbatches
             msg = f"Epoch {epoch}/{epochs} complete — avg π loss={avg_pi:.4f}, avg v loss={avg_v:.4f}"
             logging.info(msg)
-            print(msg)
+            logging.debug(msg)
 
     def save_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
         if not os.path.exists(folder):
-            print("Checkpoint Directory does not exist! Making directory {}".format(folder))
+            logging.debug("Checkpoint Directory does not exist! Making directory {}".format(folder))
             os.mkdir(folder)
         else:
-            print("Checkpoint Directory exists!")
+            logging.debug("Checkpoint Directory exists!")
         torch.save({ # type: ignore
             'state_dict': self.nnet.state_dict(),
         }, filepath)

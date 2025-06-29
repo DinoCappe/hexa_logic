@@ -96,7 +96,7 @@ class Coach:
 
         while True:
             episodeStep += 1
-            print("[EXE EPISODE] Original board:", board)
+            logging.debug("[EXE EPISODE] Original board:", board)
 
             temp = 1 if episodeStep < self.tempThreshold else 0
 
@@ -106,21 +106,21 @@ class Coach:
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)
                 trainExamples.append((b, p, 0.0))  # Use a placeholder 0.0 instead of None.
-                print("Number of training examples generated: ", len(trainExamples))
+                logging.debug("Number of training examples generated: ", len(trainExamples))
             
             # Check that the selected action is valid.
             action = np.random.choice(len(pi), p=pi)
             valid_moves = self.game.getValidMoves(board, player)
             if valid_moves[action] == 0:
-                print(f"[EXE EPISODE] Action {action} is invalid. Resampling from valid moves.")
+                logging.debug(f"[EXE EPISODE] Action {action} is invalid. Resampling from valid moves.")
                 valid_indices = np.nonzero(valid_moves)[0]
                 if valid_indices.size == 0:
                     raise ValueError("No valid moves available!")
                 # Pick a random valid move.
                 action = np.random.choice(valid_indices)
-                print("[EXE EPISODE] Resampled action:", action)
+                logging.debug("[EXE EPISODE] Resampled action:", action)
 
-            print("[EXECUTE EPISODE] Randomly selected action: ", action)
+            logging.debug("[EXECUTE EPISODE] Randomly selected action: ", action)
             board, currentPlayer = self.game.getNextState(board, player, action)
             r = self.game.getGameEnded(board, player)
             if r != 0:
@@ -148,7 +148,7 @@ class Coach:
         if files:
             with open(files[-1], "rb") as f:
                 self.trainExamplesHistory = pickle.load(f)
-            print(f"[R{rank}] Loaded {sum(len(d) for d in self.trainExamplesHistory)} examples from disk")
+            logging.debug(f"[R{rank}] Loaded {sum(len(d) for d in self.trainExamplesHistory)} examples from disk")
 
         # Evaluate initial performance against a random baseline.
         if rank == 0:

@@ -2,6 +2,7 @@ from trainExample import TrainExample
 from gameWrapper import GameWrapper
 from HiveNNet import NNetWrapper
 import os
+import logging
 
 class TrainExampleWrapper:
     def __init__(self, path: str, game: GameWrapper, nnet: NNetWrapper):
@@ -18,6 +19,6 @@ class TrainExampleWrapper:
                 try:
                     _ = self.train_examples._parse_game(content)
                 except ValueError as e:
-                    print(f"Error parsing {file}: {e}")
+                    logging.debug(f"Error parsing {file}: {e}")
                     return
                 # self.train_examples.train(content)

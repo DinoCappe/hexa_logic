@@ -8,6 +8,7 @@ from mcts import MCTSBrain
 from HiveNNet import NNetWrapper
 from utils import dotdict
 import torch
+import logging
 
 class Engine():
   VERSION: Final[str] = "1.1.0"
@@ -45,9 +46,9 @@ Engine version.
     
     try:
         self.nnet.load_checkpoint(folder=args.checkpoint, filename='best.pth.tar')
-        print(f"info loaded checkpoint from {args.checkpoint}/best.pth.tar")
+        logging.debug(f"info loaded checkpoint from {args.checkpoint}/best.pth.tar")
     except FileNotFoundError:
-        print("info no checkpoint found, using random init")
+        logging.debug("info no checkpoint found, using random init")
 
     self.brain = MCTSBrain(nnet=self.nnet, args=args)
     self.board: Optional[Board] = None

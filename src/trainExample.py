@@ -47,7 +47,7 @@ class TrainExample:
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)
                 train_examples.append((b, p, outcome))
-                print("Number of training examples generated: ", len(train_examples))
+                logging.debug("Number of training examples generated: ", len(train_examples))
             board, _ = self.game.getNextState(board, player, action, line)
         return train_examples
     

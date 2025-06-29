@@ -3,6 +3,7 @@ from random import choice
 from time import sleep
 from abc import ABC, abstractmethod
 from board import Board
+import logging
 
 class Brain(ABC):
   """
@@ -26,7 +27,7 @@ class Random(Brain):
   """
 
   def calculate_best_move(self, board: Board) -> str:
-      print("[CALC BEST MOVE] Random agent playing")
+      logging.debug("[CALC BEST MOVE] Random agent playing")
       valid_moves = [move for move in board.valid_moves.split(";") if move]
 
       if not valid_moves:

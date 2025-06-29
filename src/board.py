@@ -8,6 +8,7 @@ from typing import Dict, Optional
 from copy import deepcopy
 import dictionaries
 from collections.abc import Iterable
+import logging
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
@@ -388,19 +389,19 @@ class Board():
         direction_encoding = 0
     else:
         next_to_encoding = index // (TILE_DIM * NUM_DIRECTIONS)
-        print("neighbor: ", next_to_encoding)
+        logging.debug("neighbor: ", next_to_encoding)
         remainder = index % (TILE_DIM * NUM_DIRECTIONS)
         direction_encoding = remainder // TILE_DIM
-        print("direction: ", direction_encoding)
+        logging.debug("direction: ", direction_encoding)
         tile_encoding = remainder % TILE_DIM
-        print("tile: ", tile_encoding)
+        logging.debug("tile: ", tile_encoding)
 
     moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "S1")
     moving_piece = ("b" if self.current_player_color == PlayerColor.BLACK else "w") + moving_piece_type
-    print("moving piece: ", moving_piece)
+    logging.debug("moving piece: ", moving_piece)
     player = 1 if self.current_player_color == PlayerColor.WHITE else 0
     neighbor_piece = dictionaries.INV_TILE_DICT_FULL[player].get(next_to_encoding, "UNKNOWN")
-    print("neighbor piece: ", neighbor_piece)
+    logging.debug("neighbor piece: ", neighbor_piece)
 
     if simple:
         direction_symbol = ""

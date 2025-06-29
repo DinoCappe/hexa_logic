@@ -17,6 +17,14 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename='debug_file.log',
+    filemode='a',
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
 log = logging.getLogger(__name__)
 
 
@@ -63,12 +71,12 @@ def main(pre_training: bool = False):
     
     # Run a single self-play episode to generate training examples.
     train_examples = coach.executeEpisode()
-    print(f"Self-play episode generated {len(train_examples)} training examples.")
+    logging.debug(f"Self-play episode generated {len(train_examples)} training examples.")
     
     # Now, run the integrated learning loop for a couple of iterations.
-    print("Starting integrated learning loop...")
+    logging.debug("Starting integrated learning loop...")
     coach.learn()
-    print("Learning loop finished.")
+    logging.debug("Learning loop finished.")
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)

@@ -8,6 +8,7 @@ import copy
 from board import ACTION_SPACE_SIZE
 from symmetries import MySymmetry, Rotate60, ReflectVert
 from typing import Sequence
+import logging
 
 USE_SYMMETRIES = True
 EXTRA_ACTION = 1
@@ -37,10 +38,10 @@ class GameWrapper:
                 f"for player={player} on board {board}"
         )
 
-        print("  >>> getNextState: before play:", board, "action index:", action)
+        logging.debug("  >>> getNextState: before play:", board, "action index:", action)
         new = copy.deepcopy(board)
         new.play(move_str)
-        print("  >>> getNextState: after play:", new, "next_player:", 1-player)
+        logging.debug("  >>> getNextState: after play:", new, "next_player:", 1-player)
         return new, 1-player
 
     def getGameEnded(self, board: Board, player: int) -> float:
@@ -95,7 +96,7 @@ class GameWrapper:
         action_size = self.getActionSize()
         valid = np.zeros(action_size, dtype=np.float64)
         valid_moves = board.valid_moves_complete().split(";")  
-        print("[GET VALID MOVES] Valid moves according to the engine: ", valid_moves)
+        logging.debug("[GET VALID MOVES] Valid moves according to the engine: ", valid_moves)
         # Iterate over each valid move and set the corresponding index to 1.0.
         for move in valid_moves:
             if move:
@@ -103,7 +104,7 @@ class GameWrapper:
                     idx = board.encode_move_string(move, player, simple=False)
                     valid[idx] = 1.0
                 except Exception as e:
-                    print(f"Warning: Unable to encode move '{move}': {e}")
+                    logging.debug(f"Warning: Unable to encode move '{move}': {e}")
         # If no move was marked valid, mark the pass move (the last index) as valid.
         if np.sum(valid) == 0:
             valid[-1] = 1.0
