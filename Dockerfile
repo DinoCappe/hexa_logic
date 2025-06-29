@@ -5,8 +5,6 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-RUN mkdir -p /app/checkpoints
-COPY src/checkpoints/best.pth.tar /app/checkpoints/
+COPY src/ ./src/
 
 ENTRYPOINT ["python3", "-u", "src/engine.py"]
