@@ -14,11 +14,15 @@ def parse_sgf(sgf_text):
     game_type = ""
     if prev_metadata["SU"].startswith("hive-plm"):
         game_type = "Base+MLP"
-    else:
+    elif prev_metadata["SU"].startswith("hive "):
         game_type = "Base"
+    else:
+        print("Hybrid game type not supported")
+        return {}, []
 
     result_string = prev_metadata.get("RE")
-    draw = result_string == "The game is a draw"
+    # TODO: to be checked
+    draw = result_string == "The game is a draw" or result_string == "De partij is remise" 
     check_result = prev_metadata.get("P0")[4:-1] in prev_metadata.get("P1")[4:-1]
     last_player = None
 
@@ -34,7 +38,7 @@ def parse_sgf(sgf_text):
     }
     # --- Extract moves ---
     move_pattern = re.compile(r'(P[01])\[(\d+)\s+(.*?)\](?:TM\[(\d+)\])?')
-    real_turn = 1
+    real_turn = 0
     for match in move_pattern.finditer(sgf_text):
         player, _, action, _ = match.groups()
         action = action.strip()
@@ -51,6 +55,8 @@ def parse_sgf(sgf_text):
             values[1] = values[1].replace("M1", "M")
             values[1] = values[1].replace("L1", "L")
             if values[-1] == "":
+                if real_turn > 0:
+                    return {}, []
                 action = f"{values[1]}"
             else:
                 action = f"{values[1]} {values[-1]}"
@@ -59,6 +65,8 @@ def parse_sgf(sgf_text):
             values[2] = values[2].replace("M1", "M")
             values[2] = values[2].replace("L1", "L")
             if values[-1] == "":
+                if real_turn > 0:
+                    return {}, []
                 action = f"{values[2]}"
             else:
                 action = f"{values[2]} {values[-1]}"
@@ -72,7 +80,10 @@ def parse_sgf(sgf_text):
             continue
         else:
             raise ValueError(f"Unknown action: {action}")
-        moves.append(f"{real_turn}. {action}")
+        if len(moves) <= real_turn:
+            moves.append(action)
+        else:
+            moves[real_turn] = action
         last_player = player
 
     if check_result:
@@ -88,6 +99,7 @@ def parse_sgf(sgf_text):
 if __name__ == '__main__':
     input_directory = 'games'
     output_directory = 'UHP_games'
+    blacklist = ['HV-guest-SmartBot-2025-02-02-1535.sgf', 'HV-Snowulf-Dumbot-2024-12-30-1455.sgf', 'HV-Steevee-WeakBot-2025-02-01-2031.sgf', 'HV-SmartBot-guest-2025-01-06-0837.sgf', 'HV-SmartBot-guest-2025-04-19-0939.sgf', 'HV-WeakBot-guest-2025-05-03-1954.sgf']
 
     # Ensure the output directory exists
     os.makedirs(output_directory, exist_ok=True)
@@ -96,7 +108,7 @@ if __name__ == '__main__':
 
     for filename in os.listdir(input_directory):
         # Not clear what the "U" and "A" prefixes are for
-        if filename.endswith('.sgf'):
+        if filename.endswith('.sgf') and filename not in blacklist:
             input_path = os.path.join(input_directory, filename)
             output_path = os.path.join(output_directory, f"{os.path.splitext(filename)[0]}.pgn")
 
@@ -115,7 +127,6 @@ if __name__ == '__main__':
                 
                 output_file.write("\n")
 
-                for move in moves:
-                    output_file.write(f"{move}\n")
-        
-            
+                for i, move in enumerate(moves):
+                    output_file.write(f"{i+1}. {move}\n")
+
