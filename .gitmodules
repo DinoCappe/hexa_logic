@@ -1,0 +1,3 @@
+[submodule "utils/hive-sgf_to_pgn"]
+	path = utils/hive-sgf_to_pgn
+	url = https://github.com/IongIer/Hive_sgf-to-pgn.git

@@ -99,7 +99,7 @@ def parse_sgf(sgf_text):
 if __name__ == '__main__':
     input_directory = 'games'
     output_directory = 'UHP_games'
-    blacklist = ['HV-guest-SmartBot-2025-02-02-1535.sgf', 'HV-Snowulf-Dumbot-2024-12-30-1455.sgf', 'HV-Steevee-WeakBot-2025-02-01-2031.sgf', 'HV-SmartBot-guest-2025-01-06-0837.sgf', 'HV-SmartBot-guest-2025-04-19-0939.sgf', 'HV-WeakBot-guest-2025-05-03-1954.sgf']
+    blacklist = ['HV-guest-SmartBot-2025-02-02-1535.sgf', 'HV-Snowulf-Dumbot-2024-12-30-1455.sgf', 'HV-Steevee-WeakBot-2025-02-01-2031.sgf', 'HV-SmartBot-guest-2025-01-06-0837.sgf', 'HV-SmartBot-guest-2025-04-19-0939.sgf', 'HV-WeakBot-guest-2025-05-03-1954.sgf', 'HV-whtiger-Dumbot-2025-02-12-2027.sgf']
 
     # Ensure the output directory exists
     os.makedirs(output_directory, exist_ok=True)
