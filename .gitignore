@@ -8,3 +8,4 @@ venv
 env
 dist
 log_file.log
+/src/checkpoints

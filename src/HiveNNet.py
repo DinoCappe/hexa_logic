@@ -6,18 +6,29 @@ from board import Board
 import torch.optim as optim
 import numpy as np
 from numpy.typing import NDArray
-import random
 import os
 import logging
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
+import multiprocessing as mp
 
 def setup_distributed():
-    dist.init_process_group(backend="nccl")
-    local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(local_rank)
-    return local_rank
+    """Setup distributed training with proper error handling"""
+    try:
+        # 1) figure out which local rank we are
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
+        # 2) bind this process to the right GPU *before* init
+        if torch.cuda.is_available():
+            torch.cuda.set_device(local_rank)
+        # 3) now start the process group
+        if not dist.is_initialized():
+            backend = "nccl" if torch.cuda.is_available() else "gloo"
+            dist.init_process_group(backend=backend, init_method="env://")
+        return local_rank
+    except Exception as e:
+        logging.error(f"Failed to setup distributed training: {e}")
+        return 0
 
 class SelfPlayDataset(Dataset):
     def __init__(self, examples: list[tuple[NDArray[np.float64], NDArray[np.float64], float]], board_size: int):
@@ -31,8 +42,8 @@ class SelfPlayDataset(Dataset):
                 # b is a Board instance
                 self.encoded.append(b.encode_board(grid_size=board_size))
         self.encoded = np.stack(self.encoded)              # shape (N,C,H,W)
-        self.pis     = np.stack(self.pis)                  # shape (N,action_size)
-        self.zs      = np.array(self.zs, dtype=np.float32) # shape (N,)
+        self.pis = np.stack(self.pis)                  # shape (N,action_size)
+        self.zs = np.array(self.zs, dtype=np.float32) # shape (N,)
 
     def __len__(self):
         return len(self.zs)
@@ -58,25 +69,20 @@ class NNetWrapper:
 
         if self.distributed:
             self.local_rank = setup_distributed()
-            self.device     = torch.device(f"cuda:{self.local_rank}")
+            self.device = torch.device(f"cuda:{self.local_rank}")
         else:
             self.local_rank = 0
-            self.device     = torch.device("cuda" if args.cuda else "cpu")
+            self.device = torch.device("cuda" if args.cuda else "cpu")
         
         self.board_size = board_size
         self.action_size = action_size
         self.nnet = HiveNNet(board_size, action_size,
-                              num_channels=args.num_channels,
-                              num_layers=args.num_layers,
-                              dropout=args.dropout,
-                              )
+            num_channels=args.num_channels,
+            num_layers=args.num_layers,
+            dropout=args.dropout,
+            )
         
         self.nnet.to(self.device)
-        if args.distributed:
-            local_rank = int(os.environ["LOCAL_RANK"])
-            print(f"[rank {local_rank}] about to wrap model in DDP")
-            self.nnet = DDP(self.nnet, device_ids=[self.local_rank])
-            print(f"[rank {local_rank}] DDP initialized")
     
     def predict(self, board: Board):
         """
@@ -100,90 +106,134 @@ class NNetWrapper:
     
     def train(self, examples):
         """
-        Train the network on a set of examples, logging more details so we can
-        see exactly how many examples/batches we’re processing and get epoch‐by‐epoch stats.
+        Train the network on a set of examples with improved memory management
+        and error handling for distributed training.
         """
-        optimizer  = optim.Adam(self.nnet.parameters(), lr=self.args['lr'])
-        batch_size = self.args['batch_size']
-        epochs     = self.args['epochs']
+        if not examples:
+            logging.warning("No training examples provided, skipping training")
+            return
+            
+        try:
+            optimizer = optim.Adam(self.nnet.parameters(), lr=self.args['lr'])
+            batch_size = self.args['batch_size']
+            epochs = self.args['epochs']
 
-        # --- create the dataset and loader
-        ds = SelfPlayDataset(examples, board_size=self.board_size[0])
-        num_examples = len(ds)
-        if self.distributed:
-            sampler = DistributedSampler(ds)
-        else:
-            sampler = None
-
-        loader = DataLoader(
-            ds,
-            batch_size=batch_size,
-            sampler=sampler,
-            shuffle=(sampler is None),
-            num_workers=4,
-            pin_memory=True
-        )
-        num_batches = len(loader)
-
-        # Log overall dataset/loader stats
-        logging.info(f"STARTING TRAINING on {num_examples} examples, {num_batches} batches per epoch, {epochs} epochs")
-        print(f"[TRAIN] examples={num_examples}, batches/epoch={num_batches}, epochs={epochs}")
-
-        self.nnet.train()
-
-        for epoch in range(1, epochs+1):
+            # --- create the dataset and loader
+            ds = SelfPlayDataset(examples, board_size=self.board_size[0])
+            num_examples = len(ds)
+            
             if self.distributed:
-                sampler.set_epoch(epoch)
+                sampler = DistributedSampler(ds, shuffle=False)
+            else:
+                sampler = None
 
-            epoch_loss_pi = 0.0
-            epoch_loss_v  = 0.0
-            nbatches      = 0
+            # Reduce num_workers for better memory management
+            num_workers = min(2, mp.cpu_count() // 2) if self.distributed else 4
+            
+            loader = DataLoader(
+                ds,
+                batch_size=batch_size,
+                sampler=sampler,
+                shuffle=(sampler is None),
+                num_workers=num_workers,
+                pin_memory=True,
+                drop_last=True  # Helps with distributed training
+            )
+            num_batches = len(loader)
 
-            logging.info(f"  → Epoch {epoch}/{epochs} starting")
-            print(f"[TRAIN] Epoch {epoch}/{epochs} ...")
+            # Log overall dataset/loader stats
+            rank = dist.get_rank() if self.distributed else 0
+            logging.info(f"[R{rank}] STARTING TRAINING on {num_examples} examples, {num_batches} batches per epoch, {epochs} epochs")
+            print(f"[R{rank}][TRAIN] examples={num_examples}, batches/epoch={num_batches}, epochs={epochs}")
 
-            for batch_idx, (boards_tensor, target_pis, target_vs) in enumerate(loader, start=1):
-                boards_tensor = boards_tensor.to(self.device)
-                target_pis    = target_pis.to(self.device)
-                target_vs     = target_vs.to(self.device)
+            self.nnet.train()
 
-                out_pi, out_v = self.nnet(boards_tensor)
-                loss_pi = - (target_pis * out_pi.log()).sum(dim=1).mean()
-                loss_v  = (target_vs - out_v.view(-1)).pow(2).mean()
-                loss    = loss_pi + loss_v
+            for epoch in range(1, epochs+1):
+                if self.distributed and sampler:
+                    sampler.set_epoch(epoch)
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                epoch_loss_pi = 0.0
+                epoch_loss_v = 0.0
+                nbatches = 0
 
-                epoch_loss_pi += loss_pi.item()
-                epoch_loss_v  += loss_v.item()
-                nbatches      += 1
+                logging.info(f"[R{rank}]  → Epoch {epoch}/{epochs} starting")
+                print(f"[R{rank}][TRAIN] Epoch {epoch}/{epochs} ...")
 
-            avg_pi = epoch_loss_pi / nbatches
-            avg_v  = epoch_loss_v  / nbatches
-            msg = f"Epoch {epoch}/{epochs} complete — avg π loss={avg_pi:.4f}, avg v loss={avg_v:.4f}"
-            logging.info(msg)
-            print(msg)
+                for boards_tensor, target_pis, target_vs in loader:
+                    try:
+                        boards_tensor = boards_tensor.to(self.device, non_blocking=True)
+                        target_pis = target_pis.to(self.device, non_blocking=True)
+                        target_vs = target_vs.to(self.device, non_blocking=True)
+
+                        out_pi, out_v = self.nnet(boards_tensor)
+                        loss_pi = - (target_pis * out_pi).sum(dim=1).mean()
+                        loss_v  = (target_vs - out_v.view(-1)).pow(2).mean()
+                        loss = loss_pi + loss_v
+
+                        optimizer.zero_grad()
+                        loss.backward()
+                        
+                        # Gradient clipping for stability
+                        torch.nn.utils.clip_grad_norm_(self.nnet.parameters(), max_norm=1.0)
+                        
+                        optimizer.step()
+
+                        epoch_loss_pi += loss_pi.item()
+                        epoch_loss_v += loss_v.item()
+                        nbatches += 1
+                        
+                        # Clear cache periodically to prevent OOM
+                        if nbatches % 10 == 0 and torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            
+                    except RuntimeError as e:
+                        if "out of memory" in str(e):
+                            logging.error(f"[R{rank}] CUDA OOM in training batch {nbatches}, skipping...")
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                            continue
+                        else:
+                            raise e
+
+                if nbatches > 0:
+                    avg_pi = epoch_loss_pi / nbatches
+                    avg_v  = epoch_loss_v  / nbatches
+                    msg = f"[R{rank}] Epoch {epoch}/{epochs} complete — avg π loss={avg_pi:.4f}, avg v loss={avg_v:.4f}"
+                    logging.info(msg)
+                    print(msg)
+                else:
+                    logging.warning(f"[R{rank}] No successful batches in epoch {epoch}")
+                    
+        except Exception as e:
+            logging.error(f"Training failed: {e}")
+            raise e
 
     def save_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
-        if not os.path.exists(folder):
-            print("Checkpoint Directory does not exist! Making directory {}".format(folder))
-            os.mkdir(folder)
+        os.makedirs(folder, exist_ok=True)
+
+        # If the model is wrapped by DDP, pull out the underlying module
+        if hasattr(self.nnet, 'module'):
+            state_dict = self.nnet.module.state_dict()
         else:
-            print("Checkpoint Directory exists!")
-        torch.save({ # type: ignore
-            'state_dict': self.nnet.state_dict(),
-        }, filepath)
+            state_dict = self.nnet.state_dict()
+
+        torch.save({'state_dict': state_dict}, filepath)
 
     def load_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
         if not os.path.exists(filepath):
             raise Exception("No model in path {}".format(filepath))
         map_location = None if self.args.cuda else 'cpu'
-        checkpoint = torch.load(filepath, map_location=map_location) # type: ignore
-        self.nnet.load_state_dict(checkpoint['state_dict'])
+        checkpoint = torch.load(filepath, map_location=map_location)  # type: ignore
+        state_dict = checkpoint['state_dict']
+
+        # If we're wrapped by DDP, load into the underlying module;
+        # otherwise load directly.
+        if hasattr(self.nnet, 'module'):
+            self.nnet.module.load_state_dict(state_dict)
+        else:
+            self.nnet.load_state_dict(state_dict)
 
 
 class HiveNNet(nn.Module):

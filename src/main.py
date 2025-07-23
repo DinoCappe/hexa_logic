@@ -19,7 +19,6 @@ logging.basicConfig(
 
 log = logging.getLogger(__name__)
 
-
 def main(pre_training: bool = False):
     # Define hyperparameters and configuration.
     args = dotdict({
@@ -28,14 +27,14 @@ def main(pre_training: bool = False):
         'epochs': 10,
         'batch_size': 64,
         'cuda': torch.cuda.is_available(),
-        'distributed': False,
+        'distributed': True,
         'num_channels': 256,
         'num_layers': 8,
         'mcts_iterations': 100,   
 
         'exploration_constant': 1.41,
         'numEps': 100,                    
-        'maxlenOfQueue': 10000,
+        'maxlenOfQueue': 200000,
         'numMCTSSims': 25,          
         'tempThreshold': 15,
         'updateThreshold': 0.55,
@@ -54,17 +53,16 @@ def main(pre_training: bool = False):
     game = GameWrapper()
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
-    # if pre_training:
-        # train_wrapper = TrainExampleWrapper('../utils/UHP_games', game, nnet_wrapper)
-        # train_wrapper.execute_training()
-        # TODO: Implement filtering logic based on branching factor and other criteria
-    #else:
+    if args.distributed:
+        import torch.distributed as dist
+        from torch.nn.parallel import DistributedDataParallel as DDP
+        nnet_wrapper.nnet = DDP(
+            nnet_wrapper.nnet,
+            device_ids=[nnet_wrapper.local_rank],
+            find_unused_parameters=False
+        )
     coach = Coach(game, nnet_wrapper, args)
-    
-    # Run a single self-play episode to generate training examples.
-    train_examples = coach.executeEpisode()
-    print(f"Self-play episode generated {len(train_examples)} training examples.")
-    
+        
     # Now, run the integrated learning loop for a couple of iterations.
     print("Starting integrated learning loop...")
     coach.learn()

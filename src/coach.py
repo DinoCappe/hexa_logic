@@ -1,25 +1,81 @@
 import logging
 from collections import deque
 from random import shuffle
-from concurrent.futures import ThreadPoolExecutor
 import torch.distributed as dist
+import torch
 
 from tqdm import tqdm
 import csv
+import copy
 
 from enums import PlayerColor
 from mcts import MCTSBrain
 from HiveNNet import NNetWrapper
 from utils import dotdict
-from typing import Deque
+from typing import Deque, List, Tuple
 from arena import Arena
 from gameWrapper import *
 import pickle
 import glob
 
+import multiprocessing as mp
+import os
+import numpy as np
+from numpy.typing import NDArray
+
+
 log = logging.getLogger(__name__)
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
+
+def _self_play_worker_process(args: dotdict,
+    board_size: tuple[int,int],
+    action_size: int,
+    checkpoint_folder: str,
+    checkpoint_file: str,
+    seed: int,
+    local_rank: int) -> list[TrainingExample]:
+    """
+    Re-run self-play in a fresh process:
+    - turn off distributed
+    - rebuild the network wrapper and load weights
+    - call executeEpisode()
+    """
+    try:
+        # 1. seed RNG
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
+        # 2. make a local copy of args, disable distributed
+        local_args: dotdict = copy.deepcopy(args)
+        local_args.distributed = False
+        
+        # 3. Handle CUDA device assignment for worker processes
+        if local_args.cuda and torch.cuda.is_available():
+            torch.cuda.set_device(local_rank)
+
+        # 4. build a fresh network wrapper & load weights
+        nnet = NNetWrapper(board_size, action_size, local_args)
+        
+        # 5. Wait a bit and retry loading if file doesn't exist yet
+        import time
+        max_retries = 10
+        for attempt in range(max_retries):
+            try:
+                nnet.load_checkpoint(folder=checkpoint_folder, filename=checkpoint_file)
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise e
+                time.sleep(0.5)  # Wait 500ms before retry
+
+        # 6. make a fresh Coach and run one episode
+        coach = Coach(GameWrapper(), nnet, local_args)
+        return coach.executeEpisode()
+        
+    except Exception as e:
+        log.error(f"Worker process failed with seed {seed}: {e}")
+        return []  # Return empty list on failure
 
 class Coach:
     """
@@ -37,6 +93,7 @@ class Coach:
         self.maxlenOfQueue = args.maxlenOfQueue  
         self.tempThreshold = args.tempThreshold
         self.local_rank = dist.get_rank() if args.distributed else 0
+
 
     def random_agent_action(self, board: Board, player: int) -> int:
         """
@@ -71,20 +128,28 @@ class Coach:
         """
         return self._mcts_core(board, player, self.nnet)
     
-    def _self_play_worker(self, seed: int) -> list[TrainingExample]:
-        np.random.seed(seed)
-        # create fresh MCTS for this thread
-        mcts = MCTSBrain(self.game, self.nnet, self.args)
-        self.mcts = mcts
-        return self.executeEpisode()
-
-    def executeEpisodePool(self, n_games_per_rank: int = 4) -> list[TrainingExample]:
-        """Run N independent self‐play games in parallel threads, collect all examples."""
+    def executeEpisodePool(self, n_games_per_rank: int = 1) -> List[TrainingExample]:
+        """Run N games in parallel processes and collect examples."""
         seeds = [self.local_rank * 10000 + i for i in range(n_games_per_rank)]
-        with ThreadPoolExecutor(max_workers=n_games_per_rank) as pool:
-            # map returns an iterator of lists
-            results = list(pool.map(self._self_play_worker, seeds))
+        board_size = self.nnet.board_size  if not hasattr(self.nnet, 'module') else self.nnet.module.board_size
+        action_size = self.nnet.action_size if not hasattr(self.nnet, 'module') else self.nnet.module.action_size
+        ckpt_folder = self.args.checkpoint
+        ckpt_file = 'temp.pth.tar'
 
+        # Prepare args for starmap
+        tasks = [
+            (self.args, board_size, action_size,
+             ckpt_folder, ckpt_file,
+             seed, self.local_rank)
+            for seed in seeds
+        ]
+
+        # Spawn pool, run in isolated processes
+        ctx = mp.get_context('spawn')
+        with ctx.Pool(processes=n_games_per_rank) as pool:
+            results = pool.starmap(_self_play_worker_process, tasks)
+
+        # flatten
         return [ex for sub in results for ex in sub]
 
     def executeEpisode(self) -> List[TrainingExample]:
@@ -139,6 +204,10 @@ class Coach:
         if self.args.distributed:
             world_size = dist.get_world_size()
             rank = dist.get_rank()
+
+            # Create a Gloo-based group for Python-object collectives
+            ranks = list(range(world_size))
+            self.gloo_group = dist.new_group(ranks=ranks, backend="gloo")
         else:
             world_size = 1
             rank = 0
@@ -162,17 +231,37 @@ class Coach:
             logging.info(f'[R{rank}] Starting Iteration {i} ...')
             iterationTrainExamples: Deque[TrainingExample] = deque([], maxlen=self.maxlenOfQueue)
 
+            # Save current model state before self-play
+            if rank == 0:
+                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            
+            # Wait for rank 0 to save checkpoint before all ranks start self-play
+            if self.args.distributed:
+                dist.barrier()
+
             eps_per_rank = self.args.numEps // world_size
             for _ in range(eps_per_rank):
                 examples = self.executeEpisodePool()
-                iterationTrainExamples.extend(examples)
+                if examples:
+                    iterationTrainExamples.extend(examples)
 
-            all_examples = [None] * world_size
-            dist.all_gather_object(all_examples, list(iterationTrainExamples))
-            # now all_examples is a list of lists; flatten it:
-            combined_iteration = []
-            for sub in all_examples:
-                combined_iteration.extend(sub)
+            # Gather examples from all ranks
+            if self.args.distributed:
+                all_examples = [None] * world_size
+
+                # Gather over Gloo so we don’t hit NCCL broadcast timeouts
+                dist.all_gather_object(
+                    all_examples,
+                    list(iterationTrainExamples),
+                    group=self.gloo_group
+                )
+
+                combined_iteration = []
+                for sub in all_examples:
+                    if sub:
+                        combined_iteration.extend(sub)
+            else:
+                combined_iteration = list(iterationTrainExamples)
 
             if rank == 0:
                 self.trainExamplesHistory.append(combined_iteration)
@@ -187,10 +276,10 @@ class Coach:
             
                 converted_examples = [(b, p, float(o)) for (b, p, o) in trainExamples]
                 
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                # Load previous model for comparison
                 self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
                 
-                self.nnet.train(trainExamples)      # converted examples used later for storage purposes
+                self.nnet.train(trainExamples)      # Train on collected examples
                 
                 logging.info('PITTING AGAINST PREVIOUS VERSION')
                 arena = Arena(self.mcts_prev_agent_action,   # player1 ⇒ old net
