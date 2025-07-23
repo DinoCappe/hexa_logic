@@ -8,6 +8,7 @@ from typing import Dict, Optional
 from copy import deepcopy
 import dictionaries
 from collections.abc import Iterable
+# 'wS1 wQ/;wA2 /wQ;wA2 wL\\;wA2 bB1-;wA2 bS2/;wS1 -wA1;wS1 \\wA2;wA2 wQ/;wG1 -wM;wA2 -wA1;wB1 -wA1;wB1 \\wA2;wP wQ/;wS1 wA3-;wS1 wL/;wS1 \\wQ;wG1 wQ-;wA2 bA1\\;wG1 -wA2;wG1 \\wM;wA1 /wQ;wA1 wL\\;wA1 bB1-;wA1 bS2/;wG1 \\wA1;wA2 bS1-;wA2 wA3/;wA1 wQ/;wA2 wA3-;wA2 wL/;wA2 \\wQ;wA2 bS2-;wA1 \\wA2;wP wQ-;wM /bA1;wP wA3-;wP wL/;wP \\wQ;wS1 wQ\\;wA2 wQ\\;wB1 wQ\\;wA1 bA1\\;wQ wA3-;wQ wL/;wA1 wA3-;wA1 wL/;wA1 \\wQ;wA1 bS1-;wA1 wA3/;wA1 bS2-;wM \\wA1;wM -wA3;wM /bS1;wM wA1/;wM -bS1;wS1 /wM;wG1 wQ/;wA2 /wM;wB1 /wM;wM -bA1;wM bP\\;wA1 wQ\\;wA2 \\bS1;wP /wM;wP -wA1;wP \\wA2;wQ wL\\;wQ bB1-;wQ bS2/;wG1 wA3-;wG1 wL/;wG1 \\wQ;wA1 /wM;wA1 \\bS1;wM bS1/;wS1 -wM;wA2 /bP;wA2 wM\\;wM wQ-;wM bS2\\;wM bA1-;wB1 -wM;wM -wA2;wP wQ\\;wM bS2-;wS1 \\wA1;wG1 /wM;wG1 -wA1;wG1 \\wA2;wB1 -wA2;wB1 \\wM;wA1 /bP;wA1 wM\\;wA2 -wA3;wA2 /bS1;wA2 wA1/;wB1 \\wA1;wA2 -bS1;wA2 \\wA1;wA2 -bA1;wA2 bP\\;wM /wQ;wM wL\\;wM bB1-;wM bS2/;wM wQ/;wA1 -bS1;wA1 -wA3;wA1 /bS1;wM -wA1;wM \\wA2;wG1 wQ\\;wA1 -bA1;wA1 bP\\;wA2 /bA1;wA2 bS1/;wA1 -wL;wA1 /wA3;wA1 bQ/;wA1 \\bB1;wB1 wQ/;wA2 -wM;wM bA1\\;wM wA3-;wM wL/;wM \\wQ;wM bS1-;wM wA3/;wS1 wQ-;wS1 -wA2;wS1 \\wM;wP -wM;wA2 bS2\\;wA2 bA1-;wB1 wQ-;wA2 wQ-;wA2 \\wM;wA1 /bA1;wA1 bS1/;wB1 wA3-;wB1 wL/;wB1 \\wQ;wM wQ\\;wA1 -wM;wM /bP;wP -wA2;wP \\wM;wP \\wA1;wA1 bS2\\;wA1 bA1-;wA1 wQ-;wA1 -wA2;wA1 \\wM;wM \\bS1'
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
@@ -583,7 +584,7 @@ class Board():
                   case BugType.QUEEN_BEE:
                     self._valid_moves_cache.update(self._get_sliding_moves(bug, pos, 1))
                   case BugType.SPIDER:
-                    self._valid_moves_cache.update(self._get_sliding_moves(bug, pos, 3))
+                    self._valid_moves_cache.update(self._get_spider_moves(bug, pos))
                   case BugType.BEETLE:
                     self._valid_moves_cache.update(self._get_beetle_moves(bug, pos))
                   case BugType.GRASSHOPPER:
@@ -681,6 +682,32 @@ class Board():
       bug_on_left = bool(self._bugs_from_pos(left))
     return bug_on_right != bug_on_left
 
+  def _get_spider_moves(self, bug: Bug, origin: Position) -> Set[Move]:
+    """
+    Calculates the set of valid spider moves.
+
+    :param bug: Moving bug piece.
+    :type bug: Bug
+    :param origin: Initial position of the bug piece.
+    :type origin: Position
+    :return: Set of valid spider moves.
+    :rtype: Set[Move]
+    """
+    destinations: Set[Position] = set()
+    queue: Set[tuple[Position, int, Optional[Position]]] = {(origin, 0, None)}
+    depth = 3
+    while queue:
+      current, current_depth, prev_pos = queue.pop()
+      if current_depth == depth:
+        destinations.add(current)
+      if current_depth < depth:
+        queue.update(
+          (neighbor, current_depth + 1, current)
+          for direction in Direction.flat()
+          if (neighbor := self._get_neighbor(current, direction)) != prev_pos and not self._bugs_from_pos(neighbor) and self._check_for_door(origin, current, direction)
+        )
+    return {Move(bug, origin, destination) for destination in destinations if destination != origin}
+
 
   def _get_beetle_moves(self, bug: Bug, origin: Position, virtual: bool = False) -> Set[Move]:
     """
@@ -745,6 +772,7 @@ class Board():
     :return: Set of valid Mosquito moves.
     :rtype: Set[Move]
     """
+    # TODO: controllare HV-abstrato-WeakBot-2025-03-22-1655.pgn in cui un mosquito non riece a comportarsi come un pillbug
     if len(self._bugs_from_pos(origin)) > 1:
       return self._get_beetle_moves(bug, origin)
     moves: Set[Move] = set()
@@ -760,7 +788,7 @@ class Board():
             case BugType.QUEEN_BEE:
               moves.update(self._get_sliding_moves(bug, origin, 1))
             case BugType.SPIDER:
-              moves.update(self._get_sliding_moves(bug, origin, 3))
+              moves.update(self._get_spider_moves(bug, origin))
             case BugType.BEETLE:
               moves.update(self._get_beetle_moves(bug, origin))
             case BugType.GRASSHOPPER:
@@ -771,6 +799,7 @@ class Board():
               moves.update(self._get_ladybug_moves(bug, origin))
             case BugType.PILLBUG:
               moves.update(self._get_sliding_moves(bug, origin, 1))
+              moves.update(self._get_pillbug_special_moves(origin))
             case BugType.MOSQUITO:
               pass
     return moves
