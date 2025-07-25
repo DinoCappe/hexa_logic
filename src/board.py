@@ -8,7 +8,6 @@ from typing import Dict, Optional
 from copy import deepcopy
 import dictionaries
 from collections.abc import Iterable
-# 'wS1 wQ/;wA2 /wQ;wA2 wL\\;wA2 bB1-;wA2 bS2/;wS1 -wA1;wS1 \\wA2;wA2 wQ/;wG1 -wM;wA2 -wA1;wB1 -wA1;wB1 \\wA2;wP wQ/;wS1 wA3-;wS1 wL/;wS1 \\wQ;wG1 wQ-;wA2 bA1\\;wG1 -wA2;wG1 \\wM;wA1 /wQ;wA1 wL\\;wA1 bB1-;wA1 bS2/;wG1 \\wA1;wA2 bS1-;wA2 wA3/;wA1 wQ/;wA2 wA3-;wA2 wL/;wA2 \\wQ;wA2 bS2-;wA1 \\wA2;wP wQ-;wM /bA1;wP wA3-;wP wL/;wP \\wQ;wS1 wQ\\;wA2 wQ\\;wB1 wQ\\;wA1 bA1\\;wQ wA3-;wQ wL/;wA1 wA3-;wA1 wL/;wA1 \\wQ;wA1 bS1-;wA1 wA3/;wA1 bS2-;wM \\wA1;wM -wA3;wM /bS1;wM wA1/;wM -bS1;wS1 /wM;wG1 wQ/;wA2 /wM;wB1 /wM;wM -bA1;wM bP\\;wA1 wQ\\;wA2 \\bS1;wP /wM;wP -wA1;wP \\wA2;wQ wL\\;wQ bB1-;wQ bS2/;wG1 wA3-;wG1 wL/;wG1 \\wQ;wA1 /wM;wA1 \\bS1;wM bS1/;wS1 -wM;wA2 /bP;wA2 wM\\;wM wQ-;wM bS2\\;wM bA1-;wB1 -wM;wM -wA2;wP wQ\\;wM bS2-;wS1 \\wA1;wG1 /wM;wG1 -wA1;wG1 \\wA2;wB1 -wA2;wB1 \\wM;wA1 /bP;wA1 wM\\;wA2 -wA3;wA2 /bS1;wA2 wA1/;wB1 \\wA1;wA2 -bS1;wA2 \\wA1;wA2 -bA1;wA2 bP\\;wM /wQ;wM wL\\;wM bB1-;wM bS2/;wM wQ/;wA1 -bS1;wA1 -wA3;wA1 /bS1;wM -wA1;wM \\wA2;wG1 wQ\\;wA1 -bA1;wA1 bP\\;wA2 /bA1;wA2 bS1/;wA1 -wL;wA1 /wA3;wA1 bQ/;wA1 \\bB1;wB1 wQ/;wA2 -wM;wM bA1\\;wM wA3-;wM wL/;wM \\wQ;wM bS1-;wM wA3/;wS1 wQ-;wS1 -wA2;wS1 \\wM;wP -wM;wA2 bS2\\;wA2 bA1-;wB1 wQ-;wA2 wQ-;wA2 \\wM;wA1 /bA1;wA1 bS1/;wB1 wA3-;wB1 wL/;wB1 \\wQ;wM wQ\\;wA1 -wM;wM /bP;wP -wA2;wP \\wM;wP \\wA1;wA1 bS2\\;wA1 bA1-;wA1 wQ-;wA1 -wA2;wA1 \\wM;wM \\bS1'
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
@@ -296,7 +295,7 @@ class Board():
         
         Adjust the grid_size as needed.
         """
-        encoding = self.encode_board(grid_size=14)
+        encoding = self.encode_board(grid_size=26)
         #print("White queen plane:\n", encoding[0])
         #print("Black queen plane:\n", encoding[1])
         #print("White non-queen pieces plane:\n", encoding[2])

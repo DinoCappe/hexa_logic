@@ -73,7 +73,7 @@ class GameWrapper:
             # shuffle the probabilities through the action permutation
             for i in range(pi.shape[0]):
                 pi2[t.apply_to_action(i)] = pi[i]
-            syms.append((b2.encode_board(grid_size=14).astype(np.float64), pi2))
+            syms.append((b2.encode_board(grid_size=26).astype(np.float64), pi2))
         return syms
 
     def symmetry_transforms(self) -> Sequence[MySymmetry]:
