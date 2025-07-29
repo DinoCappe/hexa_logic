@@ -48,26 +48,30 @@ def main(pre_training: bool = False):
     os.makedirs(args.checkpoint, exist_ok=True)
     os.makedirs(args.results, exist_ok=True)
     
-    board_size = (14, 14)
+    board_size = (26, 26)
     
     game = GameWrapper()
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
-    if args.distributed:
-        import torch.distributed as dist
-        from torch.nn.parallel import DistributedDataParallel as DDP
-        nnet_wrapper.nnet = DDP(
-            nnet_wrapper.nnet,
-            device_ids=[nnet_wrapper.local_rank],
-            find_unused_parameters=False
-        )
-    coach = Coach(game, nnet_wrapper, args)
-        
-    # Now, run the integrated learning loop for a couple of iterations.
-    print("Starting integrated learning loop...")
-    coach.learn()
-    print("Learning loop finished.")
+    if pre_training:
+        train_wrapper = TrainExampleWrapper('pre_training/UHP_games', game, nnet_wrapper)
+        train_wrapper.execute_training()
+    else:
+        if args.distributed:
+            import torch.distributed as dist
+            from torch.nn.parallel import DistributedDataParallel as DDP
+            nnet_wrapper.nnet = DDP(
+                nnet_wrapper.nnet,
+                device_ids=[nnet_wrapper.local_rank],
+                find_unused_parameters=False
+            )
+        coach = Coach(game, nnet_wrapper, args)
+            
+        # Now, run the integrated learning loop for a couple of iterations.
+        print("Starting integrated learning loop...")
+        coach.learn()
+        print("Learning loop finished.")
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
-    main(True)
+    main(False)

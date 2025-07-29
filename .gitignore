@@ -8,4 +8,5 @@ venv
 env
 dist
 log_file.log
-/src/checkpoints
+checkpoints
+.DS_Store

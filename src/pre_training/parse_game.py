@@ -1,6 +1,13 @@
 import re
 import datetime
 import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+from board import Board
+from enums import GameState
 
 def parse_sgf(sgf_text):
     prev_metadata = {}
@@ -20,11 +27,6 @@ def parse_sgf(sgf_text):
         print("Hybrid game type not supported")
         return {}, []
 
-    result_string = prev_metadata.get("RE")
-    # TODO: to be checked
-    draw = result_string == "The game is a draw" or result_string == "De partij is remise" 
-    check_result = prev_metadata.get("P0")[4:-1] in prev_metadata.get("P1")[4:-1]
-    last_player = None
 
     curr_metadata = {
         "GameType": game_type,
@@ -34,7 +36,7 @@ def parse_sgf(sgf_text):
         "Round": "",
         "White": prev_metadata.get("P0")[4:-1],
         "Black": prev_metadata.get("P1")[4:-1],
-        "Result": "WhiteWins" if prev_metadata.get("P0")[4:-1] in result_string else "BlackWins" if not draw else "Draw"
+        "Result": ""
     }
     # --- Extract moves ---
     move_pattern = re.compile(r'(P[01])\[(\d+)\s+(.*?)\](?:TM\[(\d+)\])?')
@@ -74,37 +76,71 @@ def parse_sgf(sgf_text):
             action = "pass"
         elif values[0] == "Pick" or values[0] == "Pickb" or values[0] == "Start":
             continue
-        # TODO: Handle "AcceptDraw" and "Resign" actions
-        elif values[0] == "OfferDraw" or values[0] == "AcceptDraw" or values[0] == "Resign" or values[0] == "DeclineDraw":
+        elif values[0] == "AcceptDraw":
+            curr_metadata["Result"] = "AcceptedDraw"
+            return curr_metadata, moves
+        elif values[0] == "Resign":
+            if player == "P0":
+                curr_metadata["Result"] = "ResignWhite"
+            else:
+                curr_metadata["Result"] = "ResignBlack"
+            return curr_metadata, moves
+        elif values[0] == "OfferDraw" or values[0] == "DeclineDraw":
             real_turn -= 1
             continue
         else:
-            raise ValueError(f"Unknown action: {action}")
+            print(f"Unknown action type: {values[0]}")
+            return {}, []
         if len(moves) <= real_turn:
             moves.append(action)
         else:
             moves[real_turn] = action
-        last_player = player
-
-    if check_result:
-        if last_player == "P0":
-            curr_metadata["Result"] = "WhiteWins"
-        else:
-            curr_metadata["Result"] = "BlackWins"
 
     return curr_metadata, moves
+
+def check_game(metadata, moves):
+    """
+    Check if the game is valid based on the branching factor and other criteria.
+    This is a placeholder function; actual implementation may vary.
+    """
+    board = Board(metadata["GameType"])
+    avg_branching_factor = 0
+    for i, move in enumerate(moves):
+        avg_branching_factor += len(board._get_valid_moves())
+        try:
+            board.play(move)
+        except ValueError as e:
+            if board.state == GameState.IN_PROGRESS and "pass" in board.valid_moves and ('bot' in metadata["White"].lower() or 'bot' in metadata["Black"].lower()):
+                board.play("pass")
+                moves.insert(i, "pass")
+                print(f"Adding pass after {move} {i+1} for bot game")
+            else:
+                print(f"Error playing move {move} {i+1}: {e}\n game: {moves}\n board: {board.state}")
+                return False, 0.0
+    avg_branching_factor /= len(moves)
+    match board.state:
+        case GameState.WHITE_WINS:
+            metadata["Result"] = "WhiteWins"
+        case GameState.BLACK_WINS:
+            metadata["Result"] = "BlackWins"
+        case GameState.DRAW:
+            metadata["Result"] = "Draw"
+        case _:
+            if metadata["Result"] != "AcceptedDraw" and not metadata["Result"].startswith("Resign"):
+                print("Game not finished or invalid state.")
+                return False, avg_branching_factor
+    return True, avg_branching_factor
 
 # --- Main execution ---
 
 if __name__ == '__main__':
-    input_directory = 'games'
-    output_directory = 'UHP_games'
+    input_directory = 'pre_training/games'
+    output_directory = 'pre_training/UHP_games'
+    output_analysis = 'pre_training/game_analysis.txt'
     blacklist = ['HV-guest-SmartBot-2025-02-02-1535.sgf', 'HV-Snowulf-Dumbot-2024-12-30-1455.sgf', 'HV-Steevee-WeakBot-2025-02-01-2031.sgf', 'HV-SmartBot-guest-2025-01-06-0837.sgf', 'HV-SmartBot-guest-2025-04-19-0939.sgf', 'HV-WeakBot-guest-2025-05-03-1954.sgf', 'HV-whtiger-Dumbot-2025-02-12-2027.sgf']
 
     # Ensure the output directory exists
     os.makedirs(output_directory, exist_ok=True)
-
-    # TODO: Implement filtering logic based on brenching factor and other criteria
 
     for filename in os.listdir(input_directory):
         # Not clear what the "U" and "A" prefixes are for
@@ -121,12 +157,23 @@ if __name__ == '__main__':
                 print(f"Unable to parse {filename}, skipping...")
                 continue
 
-            with open(output_path, 'w', encoding='utf-8') as output_file:
-                for key, value in metadata.items():
-                    output_file.write(f"[{key} \"{value}\"]\n")
-                
-                output_file.write("\n")
+            if len(moves) < 20 or len(moves) > 110:
+                print(f"Game {filename} has too few or too many moves, skipping...")
+                continue
+            
+            is_valid, avg_branching_factor = check_game(metadata, moves)
 
-                for i, move in enumerate(moves):
-                    output_file.write(f"{i+1}. {move}\n")
+            if is_valid:
+                with open(output_path, 'w', encoding='utf-8') as output_file:
+                    for key, value in metadata.items():
+                        output_file.write(f"[{key} \"{value}\"]\n")
+                    
+                    output_file.write("\n")
+
+                    for i, move in enumerate(moves):
+                        output_file.write(f"{i+1}. {move}\n")
+            else:
+                if avg_branching_factor == 0.0:
+                    print(f"Invalid game in {filename}, skipping...")
+                    input("Press Enter to continue...")
 
