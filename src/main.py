@@ -3,7 +3,6 @@ from utils import dotdict
 from coach import Coach
 from HiveNNet import NNetWrapper
 from gameWrapper import GameWrapper
-from trainExampleWrapper import TrainExampleWrapper
 import os
 import multiprocessing as mp
 

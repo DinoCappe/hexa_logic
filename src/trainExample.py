@@ -51,11 +51,13 @@ class TrainExample:
         for line in lines:
             line = line[line.find('.') + 2:] # Skip the move number
             action = board.encode_move_string(line, player)
-            canon = copy.deepcopy(board)
-            if canon.current_player_color == PlayerColor.BLACK:
-                canon = board.invert_colors()
-            pi = mcts.getActionProb(canon)
-            symmetries = self.game.getSymmetries(canon, pi)
+            # Va invertita la board?
+            # canon = copy.deepcopy(board)
+            # if canon.current_player_color == PlayerColor.BLACK:
+            #     canon = board.invert_colors()
+            # La ricerca dopo un po' fallisce in una mossa non valida
+            pi = mcts.getActionProb(board)
+            symmetries = self.game.getSymmetries(board, pi)
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)
                 train_examples.append((b, p, outcome))

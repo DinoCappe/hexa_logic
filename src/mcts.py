@@ -67,6 +67,7 @@ class MCTSBrain(Brain):
         return np.array([x / total for x in counts], dtype=np.float64)
 
     def calculate_best_move(self, board: Board, max_time: Optional[float] = None) -> str:
+        # add openings
         probs = self.getActionProb(board, temp=0, max_time=max_time)
         player = 1 if board.current_player_color == PlayerColor.WHITE else 0
         valid_moves = self.game.getValidMoves(board, player)

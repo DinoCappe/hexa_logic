@@ -41,7 +41,7 @@ Engine version.
         'results': 'results'
     })
 
-    self.nnet = NNetWrapper((14, 14), ACTION_SPACE_SIZE+1, args)
+    self.nnet = NNetWrapper((26, 26), ACTION_SPACE_SIZE+1, args)
     
     try:
         self.nnet.load_checkpoint(folder=args.checkpoint, filename='best.pth.tar')
