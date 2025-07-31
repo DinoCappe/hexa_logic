@@ -304,7 +304,7 @@ class Board():
         board_as_string = ":".join(encoding.astype(str).flatten().tolist())
         return board_as_string
   
-  def encode_move_string(self, move_str: str, player: int, simple: bool = False) -> int:
+  def encode_move_string(self, move_str: str, simple: bool = False) -> int:
     """
     Converts a move string (using BoardSpace notation) into an action index
     in the tile-relative action space.
@@ -368,7 +368,7 @@ class Board():
         index = (14 * 7 * next_to_encoding) + (14 * direction_encoding) + tile_encoding
     return int(index)
   
-  def decode_move_index(self, player: int, index: int, simple: bool = False) -> str:
+  def decode_move_index(self, index: int, simple: bool = False) -> str:
     # If index equals the reserved pass index:
     if index == ACTION_SPACE_SIZE:
         return "pass"

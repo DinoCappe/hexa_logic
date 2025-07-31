@@ -50,7 +50,7 @@ class TrainExample:
         train_examples = []
         for line in lines:
             line = line[line.find('.') + 2:] # Skip the move number
-            action = board.encode_move_string(line, player)
+            action = board.encode_move_string(line)
             # Va invertita la board?
             # canon = copy.deepcopy(board)
             # if canon.current_player_color == PlayerColor.BLACK:
@@ -83,7 +83,7 @@ class TrainExample:
         """
         mcts = MCTSBrain(self.game, self.nnet, self.nnet.args)
         pi = mcts.getActionProb(board, temp=0)
-        valid = self.game.getValidMoves(board, player)
+        valid = self.game.getValidMoves(board)
         pi = pi * valid
         if pi.sum() > 0:
             return int(np.argmax(pi))
@@ -95,7 +95,7 @@ class TrainExample:
         Ignores canonicalisation completely—
         just pick uniformly from the real board’s valid moves.
         """
-        valid = self.game.getValidMoves(board, player)
+        valid = self.game.getValidMoves(board)
         valid_indices = np.nonzero(valid)[0]
         return int(np.random.choice(valid_indices))
 

@@ -51,7 +51,7 @@ class Arena:
             else:
                 action = self.player2(board, curPlayer)
 
-            valid = self.game.getValidMoves(board, curPlayer)
+            valid = self.game.getValidMoves(board)
             if valid[action] == 0:
                 raise ValueError(f"Illegal action {action}")
 

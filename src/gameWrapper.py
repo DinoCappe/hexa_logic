@@ -25,10 +25,10 @@ class GameWrapper:
     def getNextState(self, board: Board, player: int, action: int, move_str: str = "") -> Tuple[Board,int]:
         # decode against the “real” board, not the canonical one
         if move_str == "":
-            move_str = board.decode_move_index(player, action)
+            move_str = board.decode_move_index(action)
 
         # 1) Get the binary valid-move mask from the engine:
-        valid_mask = self.getValidMoves(board, player)
+        valid_mask = self.getValidMoves(board)
 
         # 2) Assert the chosen action index is 1 in that mask:
         if valid_mask[action] == 0:
@@ -83,7 +83,7 @@ class GameWrapper:
         action_space_size = ACTION_SPACE_SIZE
         return int(action_space_size + 1)  # +1 for the pass move.
 
-    def getValidMoves(self, board: Board, player: int) -> NDArray[np.float64]:
+    def getValidMoves(self, board: Board) -> NDArray[np.float64]:
         """
         Returns a binary vector of length getActionSize() indicating which moves
         in the fixed tile-relative action space are valid.
@@ -100,7 +100,7 @@ class GameWrapper:
         for move in valid_moves:
             if move:
                 try:
-                    idx = board.encode_move_string(move, player, simple=False)
+                    idx = board.encode_move_string(move, simple=False)
                     valid[idx] = 1.0
                 except Exception as e:
                     print(f"Warning: Unable to encode move '{move}': {e}")

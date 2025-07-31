@@ -100,14 +100,14 @@ class Coach:
         Ignores canonicalisation completely—
         just pick uniformly from the real board’s valid moves.
         """
-        valid = self.game.getValidMoves(board, player)
+        valid = self.game.getValidMoves(board)
         valid_indices = np.nonzero(valid)[0]
         return int(np.random.choice(valid_indices))
 
     def _mcts_core(self, board: Board, player: int, nnet: NNetWrapper) -> int:
         mcts = MCTSBrain(self.game, nnet, self.args)
         pi = mcts.getActionProb(board, temp=0)
-        valid = self.game.getValidMoves(board, player)
+        valid = self.game.getValidMoves(board)
         pi = pi * valid
         if pi.sum() > 0:
             return int(np.argmax(pi))
@@ -175,7 +175,7 @@ class Coach:
             
             # Check that the selected action is valid.
             action = np.random.choice(len(pi), p=pi)
-            valid_moves = self.game.getValidMoves(board, player)
+            valid_moves = self.game.getValidMoves(board)
             if valid_moves[action] == 0:
                 print(f"[EXE EPISODE] Action {action} is invalid. Resampling from valid moves.")
                 valid_indices = np.nonzero(valid_moves)[0]

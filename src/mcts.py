@@ -70,7 +70,7 @@ class MCTSBrain(Brain):
         # add openings
         probs = self.getActionProb(board, temp=0, max_time=max_time)
         player = 1 if board.current_player_color == PlayerColor.WHITE else 0
-        valid_moves = self.game.getValidMoves(board, player)
+        valid_moves = self.game.getValidMoves(board)
         masked_probs = probs * valid_moves
         if masked_probs.sum() > 0:
             best_action_index = int(np.argmax(masked_probs))
@@ -91,7 +91,7 @@ class MCTSBrain(Brain):
         if s not in self.Ps:
             canon = rawBoard if player == 1 else rawBoard.invert_colors()
             p_logits, v = self.nnet.predict(canon)
-            valids = self.game.getValidMoves(rawBoard, player)
+            valids = self.game.getValidMoves(rawBoard)
             p = p_logits * valids
             p_sum = p.sum()
             self.Ps[s] = p / p_sum if p_sum > 0 else valids / valids.sum()
@@ -100,7 +100,7 @@ class MCTSBrain(Brain):
             return -v
 
         # Retrieve cached
-        valids = self.Vs[s] = self.game.getValidMoves(rawBoard, player)
+        valids = self.Vs[s] = self.game.getValidMoves(rawBoard)
 
         # Initialize best action from first valid index
         valid_idxs = [i for i,v in enumerate(valids) if v]
