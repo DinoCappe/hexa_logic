@@ -6,6 +6,7 @@ from arena import Arena
 from board import Board, PlayerColor
 from mcts import MCTSBrain
 import os
+import logging
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
 
@@ -52,11 +53,17 @@ class TrainExample:
             line = line[line.find('.') + 2:] # Skip the move number
             action = board.encode_move_string(line)
             # Va invertita la board?
-            # canon = copy.deepcopy(board)
-            # if canon.current_player_color == PlayerColor.BLACK:
-            #     canon = board.invert_colors()
+            canon = copy.deepcopy(board)
+            if canon.current_player_color == PlayerColor.BLACK:
+                canon = board.invert_colors()
             # La ricerca dopo un po' fallisce in una mossa non valida
-            pi = mcts.getActionProb(board)
+            # pi = mcts.getActionProb(board)
+            # Proposta: se facciamo direttamente pi, _ = self.nnet.predict(canon)?
+            p_logits, _ = self.nnet.predict(canon)
+            valids = self.game.getValidMoves(board)
+            p = p_logits * valids
+            p_sum = p.sum()
+            pi = p / p_sum if p_sum > 0 else valids / valids.sum()
             symmetries = self.game.getSymmetries(board, pi)
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)
@@ -73,8 +80,10 @@ class TrainExample:
                 with open(input_path, 'r') as file:
                     content = file.read()
                     train_examples.extend(self.parse_game(content))
-        shuffle(train_examples)
-        self.nnet.train(train_examples)
+            if len(train_examples) > 20000:
+                shuffle(train_examples)
+                self.nnet.train(train_examples)
+                train_examples = []
 
     def mcts_agent_action(self, board: Board, player: int) -> int:
         """
@@ -105,3 +114,4 @@ class TrainExample:
                 self.game)
         wins_random, wins_zero, draws = arena.playGames(10)
         print('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
+        logging.info(f'ZERO/RANDOM WINS : {wins_zero} / {wins_random} ; DRAWS : {draws}')

@@ -108,3 +108,21 @@ class GameWrapper:
         if np.sum(valid) == 0:
             valid[-1] = 1.0
         return valid
+    
+    def getSynonymSpace(self, board: Board) -> NDArray[np.float64]:
+        """
+        Returns a binary vector of length getActionSize() indicating with the same id (the first synonym's index) the valid moves that are synonyms.
+        """
+        valid_moves = board._get_valid_moves()
+        synonym_vector = np.zeros(self.getActionSize(), dtype=np.float64)
+        for move in valid_moves:
+            synonyms = board.stringify_move(move, True).split(";")
+            id = board.encode_move_string(synonyms[0], simple=False)
+            for synonym in synonyms:
+                idx = board.encode_move_string(synonym, simple=False)
+                if synonym_vector[idx] != 0:
+                    raise ValueError(
+                        f"Synonym {synonym}->{id} already has an ID: {synonym_vector[idx]}"
+                    )
+                synonym_vector[idx] = id
+        return synonym_vector
