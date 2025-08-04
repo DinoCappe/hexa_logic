@@ -37,41 +37,53 @@ class TrainExample:
         return game_string.find('Base+MLP') != -1
     
     def parse_game(self, game_string: str) -> List[TrainingExample]:
-        board = None
-        mcts = MCTSBrain(self.game, self.nnet, self.nnet.args)
         if self._extract_extentions(game_string):
             board = self.game.getInitBoard(expansions=True)
         else:
             board = self.game.getInitBoard()
+
         player = 1 if board.current_player_color == PlayerColor.WHITE else 0
         outcome = self._extract_outcome(game_string)
         game_string = game_string[game_string.find('\n\n') + 2:]  # Skip the header
-        # Loop through game_string every newline
         lines = [line for line in game_string.split('\n') if line.strip()]
-        train_examples = []
+        train_examples: list[TrainingExample] = []
+
+        action_size = self.game.getActionSize()
+
         for line in lines:
-            line = line[line.find('.') + 2:] # Skip the move number
-            action = board.encode_move_string(line)
-            # Va invertita la board?
-            canon = copy.deepcopy(board)
-            if canon.current_player_color == PlayerColor.BLACK:
-                canon = board.invert_colors()
-            # La ricerca dopo un po' fallisce in una mossa non valida
-            # pi = mcts.getActionProb(board)
-            # Proposta: se facciamo direttamente pi, _ = self.nnet.predict(canon)?
-            p_logits, _ = self.nnet.predict(canon)
-            valids = self.game.getValidMoves(board)
-            p = p_logits * valids
-            p_sum = p.sum()
-            pi = p / p_sum if p_sum > 0 else valids / valids.sum()
-            symmetries = self.game.getSymmetries(board, pi)
+            line = line[line.find('.') + 2:]  # Skip the move number
+
+            # Encode the human move; if it fails, abort this game.
+            try:
+                action = board.encode_move_string(line)
+            except Exception as e:
+                print(f"Failed to encode human move '{line}': {e}. Skipping game.")
+                return []
+
+            canon = board if board.current_player_color == PlayerColor.WHITE else board.invert_colors()
+
+            # One-hot policy for the human move.
+            pi = np.zeros(action_size, dtype=np.float64)
+            pi[action] = 1.0
+
+            # Value from the perspective of the player to move.
+            value = outcome if board.current_player_color == PlayerColor.WHITE else -outcome
+
+            # Apply symmetries.
+            symmetries = self.game.getSymmetries(canon, pi)
             for b, p in symmetries:
-                # b is now an NDArray[np.float64] (the encoded board)
-                train_examples.append((b, p, outcome))
+                train_examples.append((b, p, value))
                 print("Number of training examples generated: ", len(train_examples))
-            board, _ = self.game.getNextState(board, player, action, line)
+
+            # Step the real board forward and update player.
+            try:
+                board, player = self.game.getNextState(board, player, action, line)
+            except Exception as e:
+                print(f"Failed to apply human move '{line}' to board: {e}. Stopping parsing this game.")
+                break
+
         return train_examples
-        
+
     def execute_training(self):
         train_examples = []
         for file in self.file_list:

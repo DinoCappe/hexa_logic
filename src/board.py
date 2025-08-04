@@ -372,59 +372,32 @@ class Board():
     # If index equals the reserved pass index:
     if index == ACTION_SPACE_SIZE:
         return "pass"
-    
-    # If it's the first move, return the piece's short name only.
-    if self.turn == 0:
-        tile_encoding = index  # for first move, our index is the tile encoding.
-        moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "S1")  # default to spider if unknown.
-        return ("b" if self.current_player_color == PlayerColor.BLACK else "w") + moving_piece_type
 
-    TILE_DIM = 14
-    NUM_DIRECTIONS = 7
+    # First: try to resolve the move by comparing against valid moves (and their synonyms).
+    # This preserves the exact moved bug/color (e.g., pillbug moving opponent piece).
+    for move in self._get_valid_moves():
+        # primary stringification
+        try:
+            move_str = self.stringify_move(move)
+            if self.encode_move_string(move_str, simple=simple) == index:
+                return move_str
+        except Exception:
+            pass
 
-    if simple:
-        next_to_encoding = index // TILE_DIM
-        tile_encoding = index % TILE_DIM
-        direction_encoding = 0
-    else:
-        next_to_encoding = index // (TILE_DIM * NUM_DIRECTIONS)
-        print("neighbor: ", next_to_encoding)
-        remainder = index % (TILE_DIM * NUM_DIRECTIONS)
-        direction_encoding = remainder // TILE_DIM
-        print("direction: ", direction_encoding)
-        tile_encoding = remainder % TILE_DIM
-        print("tile: ", tile_encoding)
-
-    moving_piece_type = dictionaries.INV_TILE_DICT_CANONICAL.get(tile_encoding, "S1")
-    moving_piece = ("b" if self.current_player_color == PlayerColor.BLACK else "w") + moving_piece_type
-    print("moving piece: ", moving_piece)
-    player = 1 if self.current_player_color == PlayerColor.WHITE else 0
-    neighbor_piece = dictionaries.INV_TILE_DICT_FULL[player].get(next_to_encoding, "UNKNOWN")
-    print("neighbor piece: ", neighbor_piece)
-
-    if simple:
-        direction_symbol = ""
-    else:
-        if direction_encoding == 6:
-            direction_symbol = ""  # For stacking moves, no direction symbol is appended.
-        elif direction_encoding < 3:
-            direction_symbol = dictionaries.INV_DIRECTION_MAP_SUFFIX.get(direction_encoding, "")
-        elif direction_encoding < 6:
-            direction_symbol = dictionaries.INV_DIRECTION_MAP_PREFIX.get(direction_encoding, "")
-        else:
-            direction_symbol = ""
-
-    if not simple:
-        if direction_encoding < 3:
-            move_str = f"{moving_piece} {neighbor_piece}{direction_symbol}"
-        elif direction_encoding < 6:
-            move_str = f"{moving_piece} {direction_symbol}{neighbor_piece}"
-        else:
-            move_str = f"{moving_piece} {neighbor_piece}"
-    else:
-        move_str = f"{moving_piece} {neighbor_piece}"
-
-    return move_str
+        # also try all synonym variants if not simple
+        if not simple:
+            try:
+                all_synonyms = self.stringify_move(move, all_combinations=True).split(";")
+                for synonym in all_synonyms:
+                    if not synonym:
+                        continue
+                    try:
+                        if self.encode_move_string(synonym, simple=simple) == index:
+                            return synonym
+                    except Exception:
+                        continue
+            except Exception:
+                pass
   
   def invert_colors(self) -> 'Board':
     new = deepcopy(self)
@@ -822,23 +795,34 @@ class Board():
     }
 
   def _get_pillbug_special_moves(self, origin: Position) -> Set[Move]:
-    """
-    Calculates the set of valid special Pillbug moves.
+      """
+      Calculates the set of valid special Pillbug moves:
+      - Pick up an adjacent single (non-stacked) bug (any color),
+        provided it wasn't last moved and lifting it doesn't break the hive,
+        and place it on another empty neighboring tile of the pillbug.
+      """
+      moves: Set[Move] = set()
+      # Candidate drop targets: empty neighbors of the pillbug
+      empty_positions = [self._get_neighbor(origin, d) for d in Direction.flat() if not self._bugs_from_pos(self._get_neighbor(origin, d))]
+      if not empty_positions:
+          return moves  # nothing to place to
 
-    :param origin: Position of the Pillbug.
-    :type origin: Position
-    :return: Set of valid special Pillbug moves.
-    :rtype: Set[Move]
-    """
-    moves: Set[Move] = set()
-    # There must be at least one empty neighboring tile for the Pillbug to move another bug piece
-    if (empty_positions := [self._get_neighbor(origin, direction) for direction in Direction.flat() if not self._bugs_from_pos(self._get_neighbor(origin, direction))]):
       for direction in Direction.flat():
-        position = self._get_neighbor(origin, direction)
-        # A Pillbug can move another bug piece only if it's not stacked, it's not the last moved piece, it can be moved without breaking the hive, and it's not obstructed in moving above the Pillbug itself
-        if len(bugs := self._bugs_from_pos(position)) == 1 and self._was_not_last_moved(neighbor := bugs[-1]) and self._can_move_without_breaking_hive(position) and Move(neighbor, position, origin) in self._get_beetle_moves(neighbor, position):
-          moves.update(Move(neighbor, position, move.destination) for move in self._get_beetle_moves(neighbor, origin, True) if move.destination in empty_positions)
-    return moves
+          pos = self._get_neighbor(origin, direction)
+          bugs = self._bugs_from_pos(pos)
+          if len(bugs) != 1:
+              continue  # must be a single bug (not stacked)
+          neighbor = bugs[-1]
+          if not self._was_not_last_moved(neighbor):
+              continue
+          if not self._can_move_without_breaking_hive(pos):
+              continue
+          # For each empty placement adjacent to the pillbug
+          for dest in empty_positions:
+              if dest == pos:
+                  continue  # can't "move" to the same square
+              moves.add(Move(neighbor, pos, dest))
+      return moves
 
   def _can_move_without_breaking_hive(self, position: Position) -> bool:
     """

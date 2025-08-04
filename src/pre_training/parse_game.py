@@ -2,6 +2,7 @@ import re
 import datetime
 import os
 import sys
+from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -134,9 +135,10 @@ def check_game(metadata, moves):
 # --- Main execution ---
 
 if __name__ == '__main__':
-    input_directory = 'pre_training/games'
-    output_directory = 'pre_training/UHP_games'
-    output_analysis = 'pre_training/game_analysis.txt'
+    base_dir = Path(__file__).resolve().parent
+    input_directory = base_dir / "games"
+    output_directory = base_dir / "UHP_games"
+    output_analysis = base_dir / "game_analysis.txt"
     blacklist = ['HV-guest-SmartBot-2025-02-02-1535.sgf', 'HV-Snowulf-Dumbot-2024-12-30-1455.sgf', 'HV-Steevee-WeakBot-2025-02-01-2031.sgf', 'HV-SmartBot-guest-2025-01-06-0837.sgf', 'HV-SmartBot-guest-2025-04-19-0939.sgf', 'HV-WeakBot-guest-2025-05-03-1954.sgf', 'HV-whtiger-Dumbot-2025-02-12-2027.sgf']
 
     # Ensure the output directory exists

@@ -27,7 +27,7 @@ def main():
         'epochs': 10,
         'batch_size': 64,
         'cuda': torch.cuda.is_available(),
-        'distributed': True,
+        'distributed': False,
         'num_channels': 256,
         'num_layers': 8,
         'mcts_iterations': 100,   
@@ -54,7 +54,7 @@ def main():
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
     train_wrapper = TrainExample('pre_training/UHP_games', game, nnet_wrapper)
-    # train_wrapper.evaluate_training()
+
     train_wrapper.execute_training()
     train_wrapper.evaluate_training()
     train_wrapper.nnet.save_checkpoint(folder=args.checkpoint, filename='pre_training.pth.tar')
