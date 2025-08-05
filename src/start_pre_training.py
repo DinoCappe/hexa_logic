@@ -27,7 +27,7 @@ def main():
         'epochs': 10,
         'batch_size': 64,
         'cuda': torch.cuda.is_available(),
-        'distributed': False,
+        'distributed': True,
         'num_channels': 256,
         'num_layers': 8,
         'mcts_iterations': 100,   
@@ -53,11 +53,19 @@ def main():
     game = GameWrapper()
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
+    if args.distributed:
+        import torch.distributed as dist
+        from torch.nn.parallel import DistributedDataParallel as DDP
+        nnet_wrapper.nnet = DDP(
+            nnet_wrapper.nnet,
+            device_ids=[nnet_wrapper.local_rank],
+            find_unused_parameters=False
+        )
     train_wrapper = TrainExample('pre_training/UHP_games', game, nnet_wrapper)
 
     train_wrapper.execute_training()
     train_wrapper.evaluate_training()
-    train_wrapper.nnet.save_checkpoint(folder=args.checkpoint, filename='pre_training.pth.tar')
+    # train_wrapper.nnet.save_checkpoint(folder=args.checkpoint, filename='pre_training.pth.tar')
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)

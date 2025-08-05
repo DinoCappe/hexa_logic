@@ -4,8 +4,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 # Target webpage and download directory
-BASE_URL = "https://www.boardspace.net/hive/hivegames/archive-2025/"
-DOWNLOAD_DIR = "hivegames_2025_zips"
+BASE_URL = "https://www.boardspace.net/hive/hivegames/archive-2024/"
+DOWNLOAD_DIR = "hivegames_2024_zips"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 def fetch_zip_links(url):

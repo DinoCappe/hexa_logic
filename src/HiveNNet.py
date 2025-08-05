@@ -12,6 +12,10 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 import multiprocessing as mp
+import glob
+from typing import List, Tuple
+
+TrainingExample = Tuple[np.ndarray, np.ndarray, float]
 
 def setup_distributed():
     """Setup distributed training with proper error handling"""
@@ -112,22 +116,16 @@ class NNetWrapper:
         if not examples:
             logging.warning("No training examples provided, skipping training")
             return
-            
+        
         try:
             optimizer = optim.Adam(self.nnet.parameters(), lr=self.args['lr'])
             batch_size = self.args['batch_size']
             epochs = self.args['epochs']
 
-            # --- create the dataset and loader
             ds = SelfPlayDataset(examples, board_size=self.board_size[0])
             num_examples = len(ds)
             
-            if self.distributed:
-                sampler = DistributedSampler(ds, shuffle=False)
-            else:
-                sampler = None
-
-            # Reduce num_workers for better memory management
+            sampler = DistributedSampler(ds) if self.distributed else None
             num_workers = min(2, mp.cpu_count() // 2) if self.distributed else 4
             
             loader = DataLoader(
