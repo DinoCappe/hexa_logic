@@ -10,6 +10,8 @@ import csv
 import logging
 import numpy as np
 import multiprocessing as mp
+from utils import dotdict
+from tqdm import tqdm
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
 _parser = None
@@ -21,10 +23,22 @@ def _init_worker(path: str, checkpoint_folder: str, checkpoint_file: str, args):
     action_size = game.getActionSize()
     # load a CPU-only net once
     nnet = NNetWrapper(board_size=(26,26), action_size=action_size, args=args)
-    nnet.load_checkpoint(folder=checkpoint_folder, filename=checkpoint_file)
+    ckpt = os.path.join(checkpoint_folder, checkpoint_file)
+    if os.path.exists(ckpt):
+        try:
+            nnet.load_checkpoint(folder=checkpoint_folder, filename=checkpoint_file)
+            logging.info(f"Worker loaded checkpoint {ckpt}")
+        except Exception as e:
+            logging.warning(f"Worker failed to load checkpoint {ckpt}: {e}, starting from scratch")
+    else:
+        logging.warning(f"Worker did not find checkpoint {ckpt}, starting from scratch")
     # instantiate the parser
     global _parser
     _parser = TrainExample(path, game, nnet)
+
+def _worker_parse_file(filename: str) -> list[TrainingExample]:
+    # this runs *in* the worker, where _parser has been set by initializer
+    return _parser._parse_file(filename)
 
 class TrainExample:
     def __init__(self, path: str, game: GameWrapper, nnet: NNetWrapper):
@@ -39,9 +53,7 @@ class TrainExample:
             with open(self.diagnostics_path, "w", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([
-                    "game_file", "ply", "human_move", "pi_mcts_human",
-                    "entropy", "confidence", "base_alpha", "adjusted_alpha",
-                    "disagreement", "value", "top_mcts_moves"  # last column is a small summary
+                    "game_file", "ply", "human_move", "value", "outcome"  # last column is a small summary
                 ])
     
     def _entropy(self, p: np.ndarray) -> float:
@@ -53,48 +65,20 @@ class TrainExample:
         return 1.0 - frac * (1.0 - min_alpha)
     
     def _log_move(self,
-            game_file: str,
-            ply: int,
-            human_move: str,
-            pi_mcts: np.ndarray,
-            human_action_idx: int,
-            base_alpha: float,
-            adjusted_alpha: float,
-            value: float,
-            outcome: float):
-        entropy = self._entropy(pi_mcts)
-        action_prob = float(pi_mcts[human_action_idx])
-        max_ent = np.log(self.game.getActionSize())
-        confidence = 1.0 - (entropy / max_ent)
-        disagreement = 1.0 - action_prob
-
-        # Top few MCTS moves for context (move_str:prob)
-        top_k = 5
-        sorted_idxs = np.argsort(-pi_mcts)[:top_k]
-        best_moves = []
-        for idx in sorted_idxs:
-            move_str = ""  # try to decode safely (fallback to index if decode fails)
-            try:
-                move_str = self.game.getInitBoard().decode_move_index(idx)  # this is approximate; you could instead keep board and call decode_move_index on it
-            except Exception:
-                move_str = str(idx)
-            best_moves.append(f"{move_str}:{pi_mcts[idx]:.3f}")
-        top_mcts_summary = "|".join(best_moves)
-
+                  game_file: str,
+                  ply: int,
+                  human_move: str,
+                  value: float,
+                  outcome: float):
+        """Log just the ply, human move, and value/outcome."""
         with open(self.diagnostics_path, "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([
                 game_file,
                 ply,
                 human_move,
-                f"{action_prob:.6f}",
-                f"{entropy:.6f}",
-                f"{confidence:.6f}",
-                f"{base_alpha:.4f}",
-                f"{adjusted_alpha:.4f}",
-                f"{disagreement:.6f}",
                 f"{value:.4f}",
-                top_mcts_summary,
+                f"{outcome:.4f}",
             ])
 
     def _extract_outcome(self, game_string: str) -> float:
@@ -126,7 +110,7 @@ class TrainExample:
     
     def parse_game(self, game_string: str) -> list[TrainingExample]:
         board = None
-        mcts = MCTSBrain(self.game, self.nnet, self.nnet.args)
+        # mcts = MCTSBrain(self.game, self.nnet, self.nnet.args)
         if self._extract_extentions(game_string):
             board = self.game.getInitBoard(expansions=True)
         else:
@@ -152,49 +136,14 @@ class TrainExample:
             if canon.current_player_color == PlayerColor.BLACK:
                 canon = canon.invert_colors()
 
-            # Human one-hot (with smoothing if desired)
             epsilon = 0.05
-            human_pi = np.full(action_size, epsilon / (action_size - 1), dtype=np.float64)
-            human_pi[action] = 1.0 - epsilon
-
-            # MCTS policy
-            pi_mcts = mcts.getActionProb(board, temp=1)
-
-            # Base alpha schedule
-            base_alpha = self._get_base_alpha(self.example_counter, max_examples=100_000, min_alpha=0.5)
-
-            # Compute confidence and adjust alpha
-            ent = self._entropy(pi_mcts)
-            max_ent = np.log(action_size)
-            confidence = 1.0 - (ent / max_ent)
-            alpha = base_alpha
-            if confidence > 0.7 and pi_mcts[action] < 0.01:
-                alpha = max(0.5, alpha - 0.2)
-            elif confidence < 0.3:
-                alpha = min(1.0, alpha + 0.1)
-
-            # Blend target policy
-            pi_target = alpha * human_pi + (1.0 - alpha) * pi_mcts
-            if pi_target.sum() > 0:
-                pi_target = pi_target / pi_target.sum()
-            else:
-                pi_target = human_pi / human_pi.sum()
-
+            pi_target = np.full(action_size, epsilon/(action_size-1), dtype=np.float64)
+            pi_target[action] = 1.0 - epsilon
             # Value from perspective of canonical player
             value = outcome if board.current_player_color == PlayerColor.WHITE else -outcome
 
             # Log diagnostics
-            self._log_move(
-                game_file=game_file,
-                ply=ply,
-                human_move=line,
-                pi_mcts=pi_mcts,
-                human_action_idx=action,
-                base_alpha=base_alpha,
-                adjusted_alpha=alpha,
-                value=value,
-                outcome=outcome,
-            )
+            self._log_move(game_file, ply, line, value, outcome)
 
             # Add symmetries
             symmetries = self.game.getSymmetries(canon, pi_target)
@@ -213,25 +162,41 @@ class TrainExample:
         return train_examples
 
     def execute_training(self):
-        # launch a pool of workers equal to the cluster's CPU count
-        path = self.path
-        ckpt_folder = self.nnet.args.checkpoint
-        ckpt_file = "pre_training.pth.tar"
+        cache_file = os.path.join(self.path, "pretraining_examples.pt")
 
-        # spin up one CPU worker per core, each loading its own CPU net
-        with mp.Pool(
-            processes=mp.cpu_count(),
-            initializer=_init_worker,
-            initargs=(path, ckpt_folder, ckpt_file, self.nnet.args)
-        ) as pool:
-            for examples in pool.imap_unordered(lambda fname: _parser.parse_game_file(fname),
-                                                self.file_list,
-                                                chunksize=2):
-                if not examples:
-                    continue
-                shuffle(examples)
-                # now train on the GPU once per batch of examples
-                self.nnet.train(examples)
+        if os.path.exists(cache_file):
+            print(f"[execute_training] Loading cached examples from {cache_file}…")
+            all_examples = torch.load(cache_file)
+        else:
+            print(f"[execute_training] Parsing {len(self.file_list)} games with {mp.cpu_count()} workers")
+            chunksize = max(1, len(self.file_list) // (mp.cpu_count() * 4))
+
+            all_sublists = []
+            with mp.Pool(
+                processes=mp.cpu_count(),
+                initializer=_init_worker,
+                initargs=(self.path, self.nnet.args.checkpoint, "pre_training.pth.tar", self.nnet.args)
+            ) as pool:
+                for sublist in tqdm(
+                    pool.imap_unordered(_worker_parse_file, self.file_list, chunksize=chunksize),
+                    total=len(self.file_list),
+                    desc="Parsing human games"
+                ):
+                    if sublist:
+                        all_sublists.append(sublist)
+
+            # flatten and cache
+            all_examples = [ex for sub in all_sublists for ex in sub]
+            print(f"[execute_training] Parsed {len(all_examples)} examples; saving to cache…")
+            torch.save(all_examples, cache_file)
+
+        if not all_examples:
+            print("[execute_training] No examples found, skipping training")
+            return
+
+        shuffle(all_examples)
+        print(f"[execute_training] Training on {len(all_examples)} examples")
+        self.nnet.train(all_examples)
 
     def mcts_agent_action(self, board: Board, player: int) -> int:
         """
