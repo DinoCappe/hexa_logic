@@ -12,6 +12,7 @@ import numpy as np
 import multiprocessing as mp
 from utils import dotdict
 from tqdm import tqdm
+from pathlib import Path
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
 _parser = None
@@ -44,8 +45,8 @@ class TrainExample:
     def __init__(self, path: str, game: GameWrapper, nnet: NNetWrapper):
         self.game = game
         self.nnet = nnet
-        self.path = path
-        self.file_list = [f for f in os.listdir(path) if f.endswith('.pgn')]
+        self.path = Path(path)
+        self.file_list = [str(p) for p in self.path.rglob("*.pgn")]
         self.example_counter = 0 
         self.diagnostics_path = os.path.join(path, "pretraining_diagnostics.csv")
 

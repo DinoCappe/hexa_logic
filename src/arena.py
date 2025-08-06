@@ -1,15 +1,27 @@
 import logging
-from tqdm import tqdm
 from typing import Optional, Tuple
 from board import Board
 from enums import PlayerColor
 from utils import dotdict
 from gameWrapper import GameWrapper
 
-from typing import Callable
+import multiprocessing as mp
+from multiprocessing import Pool
+from typing import Tuple, Callable, Optional
+from tqdm import tqdm
+
 Player = Callable[[Board, int], int]
 
 log = logging.getLogger(__name__)
+
+def _play_one_game(args) -> float:
+    """
+    Worker function to play exactly one Arena game.
+    """
+    player1, player2, display, time_moves, args_dict = args
+    game = GameWrapper()
+    arena = Arena(player1, player2, game, display, time_moves, args_dict)
+    return arena.playGame(verbose=False)
 
 class Arena:
     """
@@ -58,25 +70,28 @@ class Arena:
             # advance the real game
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
 
-    def playGames(self, num: int, verbose: bool = False) -> Tuple[int,int,int]:
-        # play half the games with (player1,player2) and half with roles swapped
-        n = num // 2
+    def playGames(self, num: int, num_workers: int = None) -> Tuple[int,int,int]:
+        """
+        Parallel version of playGames. Splits the `num` matches
+        across a Pool of workers.
+        """
+        num_workers = num_workers or mp.cpu_count()
+        half = num // 2
+
+        # build the task list: first half with (p1,p2), second half with (p2,p1)
+        tasks = []
+        for _ in range(half):
+            tasks.append((self.player1, self.player2, self.display, self.time_moves, self.args))
+        # swap players
+        for _ in range(num - half):
+            tasks.append((self.player2, self.player1, self.display, self.time_moves, self.args))
+
         oneWon = twoWon = draws = 0
-
-        for _ in tqdm(range(n), desc="Arena first half"):
-            r = self.playGame(verbose)
-            if   r ==  1: oneWon += 1
-            elif r == -1: twoWon += 1
-            else:          draws  += 1
-
-        # swap who “is” player1 and who “is” player2
-        self.player1, self.player2 = self.player2, self.player1
-
-        for _ in tqdm(range(n), desc="Arena second half"):
-            r = self.playGame(verbose)
-            # now a “+1” means what used to be player2 won
-            if   r ==  1: twoWon += 1
-            elif r == -1: oneWon += 1
-            else:          draws  += 1
+        with Pool(processes=num_workers) as pool:
+            # use tqdm to monitor progress
+            for r in tqdm(pool.imap_unordered(_play_one_game, tasks), total=len(tasks), desc="Arena"):
+                if   r ==  1: oneWon += 1
+                elif r == -1: twoWon += 1
+                else:          draws  += 1
 
         return oneWon, twoWon, draws
