@@ -13,7 +13,10 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 import multiprocessing as mp
 import glob
-from typing import List, Tuple
+from typing import List, Tuple, Optional
+import bisect
+from collections import OrderedDict
+import math, time
 
 TrainingExample = Tuple[np.ndarray, np.ndarray, float]
 
@@ -33,6 +36,112 @@ def setup_distributed():
     except Exception as e:
         logging.error(f"Failed to setup distributed training: {e}")
         return 0
+    
+def make_human_loader(
+    shard_dir: str,
+    batch_size: int,
+    num_workers: int = 4,
+    distributed: bool = False,
+    max_shards: Optional[int] = None,
+    cache_size: int = 1,
+    pin_memory: bool = True,
+):
+    ds = HumanGameDataset(
+        shard_dir=shard_dir,
+        max_shards=max_shards,
+        cache_size=cache_size,
+        dtype_boards=torch.float32,
+        dtype_pi=torch.float32,
+        dtype_v=torch.float32,
+    )
+
+    sampler = DistributedSampler(ds) if distributed else None
+    loader = DataLoader(
+        ds,
+        batch_size=batch_size,
+        sampler=sampler,
+        shuffle=(sampler is None),   # shuffle only if not using DDP sampler
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=(num_workers > 0),
+        drop_last=True,
+    )
+    return ds, loader, sampler
+    
+class HumanGameDataset(Dataset):
+    """
+    Memory-efficient dataset over pretraining shards saved with torch.save([...]).
+    It builds an index over shards, and only keeps a small LRU cache of loaded shards.
+    """
+
+    def __init__(
+        self,
+        shard_dir: str,
+        max_shards: Optional[int] = None,
+        cache_size: int = 1,          # how many shards to keep in memory
+        dtype_boards: torch.dtype = torch.float32,
+        dtype_pi: torch.dtype = torch.float32,
+        dtype_v: torch.dtype = torch.float32,
+    ):
+        self.shard_paths: List[str] = sorted(glob.glob(os.path.join(shard_dir, "*.pt")))
+        if max_shards is not None:
+            self.shard_paths = self.shard_paths[:max_shards]
+        if not self.shard_paths:
+            raise RuntimeError(f"No .pt shards found in {shard_dir}")
+
+        # Build length index per shard (we do need to read len once)
+        self.shard_sizes: List[int] = []
+        for p in self.shard_paths:
+            lst = torch.load(p, map_location="cpu", weights_only=False)
+            self.shard_sizes.append(len(lst))
+        self.cum_sizes: List[int] = np.cumsum(self.shard_sizes).tolist()
+
+        self.cache: "OrderedDict[str, list]" = OrderedDict()
+        self.cache_size = max(1, cache_size)
+
+        self.dtype_boards = dtype_boards
+        self.dtype_pi = dtype_pi
+        self.dtype_v = dtype_v
+
+    def __len__(self) -> int:
+        return self.cum_sizes[-1]
+
+    def _load_shard(self, shard_idx: int) -> list:
+        path = self.shard_paths[shard_idx]
+        if path in self.cache:
+            # move to end (most recently used)
+            lst = self.cache.pop(path)
+            self.cache[path] = lst
+            return lst
+        lst = torch.load(path, map_location="cpu", weights_only=False)
+        self.cache[path] = lst
+        # evict least recently used if over capacity
+        if len(self.cache) > self.cache_size:
+            self.cache.popitem(last=False)
+        return lst
+
+    def __getitem__(self, idx: int):
+        # find shard
+        shard_idx = bisect.bisect_right(self.cum_sizes, idx)
+        prev_cum = 0 if shard_idx == 0 else self.cum_sizes[shard_idx - 1]
+        local_idx = idx - prev_cum
+
+        shard = self._load_shard(shard_idx)
+        b_np, p_np, v = shard[local_idx]
+
+        # robust tensor conversion (handles numpy or lists)
+        if isinstance(b_np, np.ndarray):
+            b = torch.from_numpy(b_np).to(self.dtype_boards)
+        else:
+            b = torch.tensor(b_np, dtype=self.dtype_boards)
+
+        if isinstance(p_np, np.ndarray):
+            pi = torch.from_numpy(p_np).to(self.dtype_pi)
+        else:
+            pi = torch.tensor(p_np, dtype=self.dtype_pi)
+
+        v_t = torch.tensor(float(v), dtype=self.dtype_v)
+        return b, pi, v_t
 
 class SelfPlayDataset(Dataset):
     def __init__(self, examples: list[tuple[NDArray[np.float64], NDArray[np.float64], float]], board_size: int):
@@ -104,107 +213,240 @@ class NNetWrapper:
         
         self.nnet.eval()
         with torch.no_grad():
+            input_tensor = torch.as_tensor(encoded_board, dtype=torch.float32, device=self.device).unsqueeze(0)
             pi, v = self.nnet(input_tensor)
-        
-        return torch.exp(pi).detach().cpu().numpy()[0], v.detach().cpu().numpy()[0]  # type: ignore
+        return torch.exp(pi).detach().cpu().numpy()[0], v.detach().cpu().numpy()[0]
     
-    def train(self, examples):
+    def _is_dist(self) -> bool:
+        return getattr(self, "distributed", False) and dist.is_available() and dist.is_initialized()
+
+    def _rank0(self) -> bool:
+        return (not self._is_dist()) or dist.get_rank() == 0
+
+    def train_from_examples(self, examples):
         """
-        Train the network on a set of examples with improved memory management
-        and error handling for distributed training.
+        Self-play style: train from an in-memory list of (board_np, pi_np, value_float).
         """
         if not examples:
-            logging.warning("No training examples provided, skipping training")
+            print("[train_from_examples] no examples; skipping")
             return
-        
-        try:
-            optimizer = optim.Adam(self.nnet.parameters(), lr=self.args['lr'])
-            batch_size = self.args['batch_size']
-            epochs = self.args['epochs']
 
-            ds = SelfPlayDataset(examples, board_size=self.board_size[0])
-            num_examples = len(ds)
-            
-            sampler = DistributedSampler(ds) if self.distributed else None
-            num_workers = min(2, mp.cpu_count() // 2) if self.distributed else 4
-            
-            loader = DataLoader(
-                ds,
-                batch_size=batch_size,
-                sampler=sampler,
-                shuffle=(sampler is None),
-                num_workers=num_workers,
-                pin_memory=True,
-                drop_last=True  # Helps with distributed training
-            )
-            num_batches = len(loader)
+        ds = SelfPlayDataset(examples, board_size=self.board_size[0])
+        sampler = DistributedSampler(ds) if self._is_dist() else None
+        loader = DataLoader(
+            ds,
+            batch_size=self.args.batch_size,
+            sampler=sampler,
+            shuffle=(sampler is None),
+            num_workers=4 if self._is_dist() else 2,
+            pin_memory=torch.cuda.is_available(),
+            drop_last=True,
+            persistent_workers=False,
+        )
 
-            # Log overall dataset/loader stats
-            rank = dist.get_rank() if self.distributed else 0
-            logging.info(f"[R{rank}] STARTING TRAINING on {num_examples} examples, {num_batches} batches per epoch, {epochs} epochs")
-            print(f"[R{rank}][TRAIN] examples={num_examples}, batches/epoch={num_batches}, epochs={epochs}")
+        model = self.nnet
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.args.lr)
 
-            self.nnet.train()
+        for epoch in range(1, self.args.epochs + 1):
+            if sampler is not None: sampler.set_epoch(epoch)
+            model.train()
+            total_pi = total_v = nb = 0
+            for boards, pis, vals in loader:
+                boards = boards.to(self.device, non_blocking=True)
+                pis    = pis.to(self.device, non_blocking=True)
+                vals   = vals.to(self.device, non_blocking=True)
 
-            for epoch in range(1, epochs+1):
-                if self.distributed and sampler:
-                    sampler.set_epoch(epoch)
+                out_pi, out_v = model(boards)          # out_pi is log-softmax in your net
+                loss_pi = -(pis * out_pi).sum(dim=1).mean()
+                loss_v  = F.mse_loss(out_v.view(-1), vals)
+                loss    = loss_pi + loss_v
 
-                epoch_loss_pi = 0.0
-                epoch_loss_v = 0.0
-                nbatches = 0
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
 
-                logging.info(f"[R{rank}]  → Epoch {epoch}/{epochs} starting")
-                print(f"[R{rank}][TRAIN] Epoch {epoch}/{epochs} ...")
+                total_pi += float(loss_pi.item())
+                total_v  += float(loss_v.item())
+                nb += 1
 
-                for boards_tensor, target_pis, target_vs in loader:
-                    try:
-                        boards_tensor = boards_tensor.to(self.device, non_blocking=True)
-                        target_pis = target_pis.to(self.device, non_blocking=True)
-                        target_vs = target_vs.to(self.device, non_blocking=True)
+            if self._rank0():
+                print(f"[train_from_examples] epoch {epoch}/{self.args.epochs} "
+                    f"π={total_pi/max(nb,1):.4f} v={total_v/max(nb,1):.4f}")
 
-                        out_pi, out_v = self.nnet(boards_tensor)
-                        loss_pi = - (target_pis * out_pi).sum(dim=1).mean()
-                        loss_v  = (target_vs - out_v.view(-1)).pow(2).mean()
+    def pretrain_from_shards(
+        self,
+        shard_dir: str,
+        epochs: int | None = None,
+        batch_size: int | None = None,
+        num_workers: int = 4,
+        max_shards: int | None = None,
+        cache_size: int = 1,
+        log_every: int = 200,
+        dry_run: int = 0,   # set >0 to iterate N batches without model compute
+    ):
+        def _rank():
+            return dist.get_rank() if dist.is_initialized() else 0
+        def _world():
+            return dist.get_world_size() if dist.is_initialized() else 1
+
+        epochs = epochs or self.args.epochs
+        batch_size = batch_size or self.args.batch_size
+
+        # ---------- Count total examples on disk (once per rank) ----------
+        shard_paths = sorted(glob.glob(os.path.join(shard_dir, "*.pt")))
+        if max_shards is not None:
+            shard_paths = shard_paths[:max_shards]
+        total_examples = 0
+        for i, p in enumerate(shard_paths):
+            try:
+                lst = torch.load(p, map_location="cpu", weights_only=False)
+            except TypeError:
+                lst = torch.load(p, map_location="cpu")
+            n = len(lst)
+            total_examples += n
+            if i < 3 or i == len(shard_paths) - 1:
+                print(f"[rank {_rank()}] [pretrain] shard {i:03d} size={n}  ({os.path.basename(p)})", flush=True)
+        print(f"[rank {_rank()}] [pretrain] shards={len(shard_paths)}  total_examples={total_examples} "
+            f"avg/shard={total_examples/max(1,len(shard_paths)):.1f}", flush=True)
+
+        # ---------- Build loader ----------
+        _, loader, sampler = make_human_loader(
+            shard_dir=shard_dir,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            distributed=self._is_dist(),
+            max_shards=max_shards,
+            cache_size=cache_size,
+            pin_memory=(self.device.type == "cuda"),
+        )
+
+        ds_len = len(loader.dataset)
+        per_rank = sampler.num_samples if sampler is not None else ds_len
+        num_batches = len(loader)
+        print(f"[rank {_rank()}] [pretrain] start → epochs={epochs}  batch={batch_size}  "
+            f"workers={num_workers}  world_size={_world()}  "
+            f"dataset_len={ds_len}  per_rank_samples={per_rank}  batches/epoch={num_batches}",
+            flush=True)
+
+        # ---------- Dry run: measure loader only ----------
+        if dry_run > 0:
+            t0 = time.perf_counter()
+            cnt = 0
+            for i, (boards, pis, vals) in enumerate(loader, start=1):
+                cnt += boards.size(0)
+                if i >= dry_run:
+                    break
+            dt = time.perf_counter() - t0
+            sps = (cnt * _world()) / max(1e-6, dt)
+            print(f"[rank {_rank()}] [pretrain] DRY RUN: {i} batches, {cnt} samples "
+                f"in {dt:.2f}s → {sps:.0f} samp/s (global).", flush=True)
+            return
+
+        model = self.nnet
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.args.lr)
+
+        # Speed knobs
+        torch.backends.cudnn.benchmark = True
+
+        # ---- AMP (only enabled on CUDA) ----
+        use_amp = (self.device.type == "cuda")
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+
+        for epoch in range(1, epochs + 1):
+            if sampler is not None:
+                sampler.set_epoch(epoch)
+            model.train()
+
+            print(f"[rank {_rank()}] [pretrain] epoch {epoch}/{epochs} …", flush=True)
+
+            total_pi = total_v = nb = 0
+            b_per_rank = 0
+            t_batch_prev = time.perf_counter()
+            t_window_start = t_batch_prev
+            i_at_window_start = 0
+            first_logged = False
+
+            try:
+                for i, (boards, pis, vals) in enumerate(loader, start=1):
+                    data_time = time.perf_counter() - t_batch_prev
+
+                    if not first_logged:
+                        print(f"[rank {_rank()}] [pretrain] first batch: "
+                            f"boards={tuple(boards.shape)},{boards.dtype} "
+                            f"pis={tuple(pis.shape)},{pis.dtype} "
+                            f"vals={tuple(vals.shape)},{vals.dtype}", flush=True)
+                        first_logged = True
+
+                    boards = boards.to(self.device, non_blocking=True)
+                    pis = pis.to(self.device, non_blocking=True)
+                    vals = vals.to(self.device, non_blocking=True)
+
+                    t_compute_start = time.perf_counter()
+
+                    # ----- forward + loss (AMP autocast) -----
+                    with torch.cuda.amp.autocast(enabled=use_amp):
+                        out_pi, out_v = model(boards)          # out_pi is log-softmax
+                        loss_pi = -(pis * out_pi).sum(dim=1).mean()
+                        loss_v = F.mse_loss(out_v.view(-1), vals)
                         loss = loss_pi + loss_v
 
-                        optimizer.zero_grad()
-                        loss.backward()
-                        
-                        # Gradient clipping for stability
-                        torch.nn.utils.clip_grad_norm_(self.nnet.parameters(), max_norm=1.0)
-                        
-                        optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
 
-                        epoch_loss_pi += loss_pi.item()
-                        epoch_loss_v += loss_v.item()
-                        nbatches += 1
-                        
-                        # Clear cache periodically to prevent OOM
-                        if nbatches % 10 == 0 and torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                            
-                    except RuntimeError as e:
-                        if "out of memory" in str(e):
-                            logging.error(f"[R{rank}] CUDA OOM in training batch {nbatches}, skipping...")
-                            if torch.cuda.is_available():
-                                torch.cuda.empty_cache()
-                            continue
-                        else:
-                            raise e
+                    # ----- backward + step (AMP scaler) -----
+                    scaler.scale(loss).backward()
+                    # for gradient clipping with AMP, unscale first
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    scaler.step(optimizer)
+                    scaler.update()
 
-                if nbatches > 0:
-                    avg_pi = epoch_loss_pi / nbatches
-                    avg_v  = epoch_loss_v  / nbatches
-                    msg = f"[R{rank}] Epoch {epoch}/{epochs} complete — avg π loss={avg_pi:.4f}, avg v loss={avg_v:.4f}"
-                    logging.info(msg)
-                    print(msg)
-                else:
-                    logging.warning(f"[R{rank}] No successful batches in epoch {epoch}")
-                    
-        except Exception as e:
-            logging.error(f"Training failed: {e}")
-            raise e
+                    compute_time = time.perf_counter() - t_compute_start
+                    t_batch_prev = time.perf_counter()
+
+                    total_pi += float(loss_pi.item())
+                    total_v  += float(loss_v.item())
+                    nb += 1
+                    b_per_rank += boards.size(0)
+
+                    if i == 1 or i % log_every == 0 or i == num_batches:
+                        steps = i - i_at_window_start
+                        dt = max(1e-6, t_batch_prev - t_window_start)
+                        sps = steps * boards.size(0) * _world() / dt
+                        eta_min = (num_batches - i) * (dt / steps) / 60.0
+                        print(
+                            f"[rank {_rank()}] [pretrain] e{epoch} b{i}/{num_batches} "
+                            f"π={loss_pi.item():.4f} v={loss_v.item():.4f} "
+                            f"avgπ={total_pi/max(nb,1):.4f} avgv={total_v/max(nb,1):.4f} "
+                            f"data={data_time*1000:.1f}ms step={compute_time*1000:.1f}ms "
+                            f"sps={sps:.0f} ETA~{eta_min:.1f}m",
+                            flush=True
+                        )
+                        t_window_start = t_batch_prev
+                        i_at_window_start = i
+
+            except Exception as e:
+                print(f"[rank {_rank()}] [pretrain] ERROR mid-epoch at batch {nb+1}: {e}", flush=True)
+                raise
+
+            print(f"[rank {_rank()}] [pretrain] epoch {epoch} done → "
+                f"avgπ={total_pi/max(nb,1):.4f} avgv={total_v/max(nb,1):.4f} "
+                f"samples_seen_per_rank={b_per_rank}", flush=True)
+
+        if self._rank0():
+            self.save_checkpoint(folder=self.args.checkpoint, filename="pretrain_last.pth.tar")
+            print(f"[rank 0] [pretrain] saved checkpoint → "
+                f"{os.path.join(self.args.checkpoint,'pretrain_last.pth.tar')}", flush=True)
+
+    def train(self, examples=None, pretrain_dir=None, **kwargs):
+        """
+        Back-compat convenience:
+        - if pretrain_dir is given -> call pretrain_from_shards
+        - else -> train_from_examples
+        """
+        if pretrain_dir is not None:
+            return self.pretrain_from_shards(pretrain_dir, **kwargs)
+        return self.train_from_examples(examples)
 
     def save_checkpoint(self, folder: str='checkpoint', filename: str='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)

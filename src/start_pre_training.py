@@ -6,8 +6,10 @@ from gameWrapper import GameWrapper
 from trainExample import TrainExample
 import os
 import multiprocessing as mp
-
+import sys
 import logging
+
+sys.stdout.reconfigure(line_buffering=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,11 +63,18 @@ def main():
             device_ids=[nnet_wrapper.local_rank],
             find_unused_parameters=False
         )
-    train_wrapper = TrainExample('pre_training/UHP_games', game, nnet_wrapper)
+        
+    shards_dir = os.path.join('src/pre_training/UHP_games', "shards")
+    train_wrapper = TrainExample('src/pre_training/UHP_games', game, nnet_wrapper)
 
-    train_wrapper.execute_training()
+    if os.path.isdir(shards_dir) and any(fname.endswith(".pt") for fname in os.listdir(shards_dir)):
+        print(f"[start_pre_training] Found shards in {shards_dir} — skipping parsing.")
+        train_wrapper.nnet.train(pretrain_dir=shards_dir)
+    else:
+        print(f"[start_pre_training] No shards found — running execute_training().")
+        train_wrapper.execute_training()
+
     train_wrapper.evaluate_training()
-    # train_wrapper.nnet.save_checkpoint(folder=args.checkpoint, filename='pre_training.pth.tar')
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)

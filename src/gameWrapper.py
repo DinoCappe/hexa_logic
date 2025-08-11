@@ -37,10 +37,10 @@ class GameWrapper:
                 f"for player={player} on board {board}"
         )
 
-        print("  >>> getNextState: before play:", board, "action index:", action)
+        # print("  >>> getNextState: before play:", board, "action index:", action)
         new = copy.deepcopy(board)
         new.play(move_str)
-        print("  >>> getNextState: after play:", new, "next_player:", 1-player)
+        # print("  >>> getNextState: after play:", new, "next_player:", 1-player)
         return new, 1-player
 
     def getGameEnded(self, board: Board, player: int) -> float:
@@ -95,7 +95,7 @@ class GameWrapper:
         action_size = self.getActionSize()
         valid = np.zeros(action_size, dtype=np.float64)
         valid_moves = board.valid_moves_complete().split(";")  
-        print("[GET VALID MOVES] Valid moves according to the engine: ", valid_moves)
+        # print("[GET VALID MOVES] Valid moves according to the engine: ", valid_moves)
         # Iterate over each valid move and set the corresponding index to 1.0.
         for move in valid_moves:
             if move:
