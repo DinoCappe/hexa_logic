@@ -69,7 +69,6 @@ class MCTSBrain(Brain):
     def calculate_best_move(self, board: Board, max_time: Optional[float] = None) -> str:
         # add openings
         probs = self.getActionProb(board, temp=0, max_time=max_time)
-        player = 1 if board.current_player_color == PlayerColor.WHITE else 0
         valid_moves = self.game.getValidMoves(board)
         masked_probs = probs * valid_moves
         if masked_probs.sum() > 0:
@@ -77,7 +76,7 @@ class MCTSBrain(Brain):
         else:
             valid_indices = np.nonzero(valid_moves)[0]
             best_action_index = int(np.random.choice(valid_indices))
-        return board.decode_move_index(player, best_action_index)
+        return board.decode_move_index(best_action_index)
 
     def search(self, rawBoard: Board) -> float:
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
