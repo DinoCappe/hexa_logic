@@ -268,7 +268,7 @@ class Direction(StrEnum):
     :return: List of flat directions.
     :rtype: list[Direction]
     """
-    return [direction for direction in Direction if direction is not Direction.ABOVE and direction is not Direction.BELOW]
+    return [Direction.RIGHT, Direction.UP_RIGHT, Direction.UP_LEFT, Direction.LEFT, Direction.DOWN_LEFT, Direction.DOWN_RIGHT]
   
   @classmethod
   def flat_left(cls):

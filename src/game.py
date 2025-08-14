@@ -20,10 +20,10 @@ class Position():
     return self is value or isinstance(value, Position) and self.q == value.q and self.r == value.r
 
   def __add__(self, other: object):
-    return Position(self.q + other.q, self.r + other.r) if isinstance(other, Position) else NotImplemented
+    return Position(self.q + other.q, self.r + other.r)
     
   def __sub__(self, other: object):
-    return Position(self.q - other.q, self.r - other.r) if isinstance(other, Position) else NotImplemented
+    return Position(self.q - other.q, self.r - other.r)
 
 class Bug():
   """

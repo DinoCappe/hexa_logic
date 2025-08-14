@@ -8,6 +8,7 @@ from typing import Dict, Optional
 from copy import deepcopy
 import dictionaries
 from collections.abc import Iterable
+# from numba import jit
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
@@ -91,7 +92,7 @@ class Board():
 
     :rtype: PlayerColor
     """
-    return list(PlayerColor)[self.turn % len(PlayerColor)]
+    return PlayerColor.WHITE if self.turn % 2 == 0 else PlayerColor.BLACK
 
   @property
   def current_player_turn(self) -> int:
@@ -198,6 +199,7 @@ class Board():
     else:
       raise ValueError(f"The game has yet to begin")
 
+  # @jit(nopython=True)
   def stringify_move(self, move: Optional[Move], all_combinations: bool = False) -> str:
     """
     Returns a MoveString from the given move.
@@ -211,24 +213,24 @@ class Board():
       moved: Bug = move.bug
       relative: Optional[Bug] = None
       direction: Optional[Direction] = None
-      result: str = ""
+      results: list[str] = []
       if (dest_bugs := self._bugs_from_pos(move.destination)):
         relative = dest_bugs[-1]
-        result += Move.stringify(moved, relative, direction) + ";"
+        results.append(Move.stringify(moved, relative, direction))
       else:
         for dir in Direction.flat():
             for neighbor_bug in self._bugs_from_pos(self._get_neighbor(move.destination, dir)):
               if neighbor_bug != moved:
                 relative = neighbor_bug
                 direction = dir.opposite
-                result += Move.stringify(moved, relative, direction) + ";"
+                results.append(Move.stringify(moved, relative, direction))
                 if not all_combinations:
                   break
               if not all_combinations:
                 break
-      if not result:
-        result = Move.stringify(moved, None, None) + ";"
-      return result[:-1]
+      if not results:
+        results.append(Move.stringify(moved, None, None))
+      return ";".join(results)
     return Move.PASS
 
   def encode_board(self, grid_size: int = 26) -> NDArray[np.int64]:
@@ -304,6 +306,7 @@ class Board():
         board_as_string = ":".join(encoding.astype(str).flatten().tolist())
         return board_as_string
   
+  # @jit(nopython=True)
   def encode_move_string(self, move_str: str, simple: bool = False) -> int:
     """
     Converts a move string (using BoardSpace notation) into an action index
