@@ -17,6 +17,11 @@ from typing import List, Tuple, Optional
 import bisect
 from collections import OrderedDict
 import math, time
+from torch.amp import autocast, GradScaler
+from torch.utils.data import get_worker_info
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 TrainingExample = Tuple[np.ndarray, np.ndarray, float]
 
@@ -43,9 +48,15 @@ def make_human_loader(
     num_workers: int = 4,
     distributed: bool = False,
     max_shards: Optional[int] = None,
-    cache_size: int = 1,
+    cache_size: int = 2,
     pin_memory: bool = True,
+    verbose: bool = False
 ):
+
+    rank0_verbose = verbose
+    if distributed and dist.is_available() and dist.is_initialized():
+        rank0_verbose = (dist.get_rank() == 0)
+
     ds = HumanGameDataset(
         shard_dir=shard_dir,
         max_shards=max_shards,
@@ -53,52 +64,58 @@ def make_human_loader(
         dtype_boards=torch.float32,
         dtype_pi=torch.float32,
         dtype_v=torch.float32,
+        verbose=rank0_verbose
     )
 
-    sampler = DistributedSampler(ds) if distributed else None
+    sampler = DistributedSampler(
+        ds,
+        shuffle=False,         # <— critical
+        drop_last=True
+    ) if distributed else None
+    
     loader = DataLoader(
         ds,
         batch_size=batch_size,
         sampler=sampler,
-        shuffle=(sampler is None),   # shuffle only if not using DDP sampler
-        num_workers=num_workers,
-        pin_memory=pin_memory,
+        shuffle=(sampler is None),
+        num_workers=num_workers,              # try 2–4 per rank
+        pin_memory=pin_memory,                # (self.device.type=='cuda')
         persistent_workers=(num_workers > 0),
         drop_last=True,
+        prefetch_factor=2 if num_workers > 0 else None,
+        multiprocessing_context="forkserver",
     )
     return ds, loader, sampler
     
 class HumanGameDataset(Dataset):
-    """
-    Memory-efficient dataset over pretraining shards saved with torch.save([...]).
-    It builds an index over shards, and only keeps a small LRU cache of loaded shards.
-    """
-
     def __init__(
         self,
         shard_dir: str,
         max_shards: Optional[int] = None,
-        cache_size: int = 1,          # how many shards to keep in memory
-        dtype_boards: torch.dtype = torch.float32,
-        dtype_pi: torch.dtype = torch.float32,
-        dtype_v: torch.dtype = torch.float32,
+        cache_size: int = 2,          # keep small (1–2)
+        dtype_boards: torch.dtype = torch.float32,  # target dtype on GPU; CPU we’ll store uint8
+        dtype_pi: torch.dtype = torch.float32,      # target dtype on GPU; CPU we’ll store float16
+        dtype_v: torch.dtype = torch.float32,       # target dtype on GPU; CPU we’ll store float16
+        verbose: bool = False,
     ):
+        self.verbose = verbose
         self.shard_paths: List[str] = sorted(glob.glob(os.path.join(shard_dir, "*.pt")))
         if max_shards is not None:
             self.shard_paths = self.shard_paths[:max_shards]
         if not self.shard_paths:
             raise RuntimeError(f"No .pt shards found in {shard_dir}")
 
-        # Build length index per shard (we do need to read len once)
+        # Build length index per shard (read size only)
         self.shard_sizes: List[int] = []
         for p in self.shard_paths:
             lst = torch.load(p, map_location="cpu", weights_only=False)
             self.shard_sizes.append(len(lst))
         self.cum_sizes: List[int] = np.cumsum(self.shard_sizes).tolist()
 
-        self.cache: "OrderedDict[str, list]" = OrderedDict()
+        self.cache: "OrderedDict[str, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]" = OrderedDict()
         self.cache_size = max(1, cache_size)
 
+        # target dtypes (used later on GPU casts)
         self.dtype_boards = dtype_boards
         self.dtype_pi = dtype_pi
         self.dtype_v = dtype_v
@@ -106,42 +123,52 @@ class HumanGameDataset(Dataset):
     def __len__(self) -> int:
         return self.cum_sizes[-1]
 
-    def _load_shard(self, shard_idx: int) -> list:
+    def _load_shard(self, shard_idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         path = self.shard_paths[shard_idx]
         if path in self.cache:
-            # move to end (most recently used)
-            lst = self.cache.pop(path)
-            self.cache[path] = lst
-            return lst
+            packed = self.cache.pop(path); self.cache[path] = packed
+            return packed
+
+        t0 = time.perf_counter()
         lst = torch.load(path, map_location="cpu", weights_only=False)
-        self.cache[path] = lst
-        # evict least recently used if over capacity
+        dt = time.perf_counter() - t0
+
+        # ----- PACK ONCE (compact CPU dtypes) -----
+        # boards: keep as uint8 to save RAM (4*26*26 bytes per sample)
+        bs, ps, vs = zip(*lst)  # lists of np arrays / floats
+        boards_np = np.stack(bs, axis=0)                    # (N, C, H, W), typically uint8 already
+        pis_np    = np.stack(ps, axis=0).astype(np.float16) # (N, A), store as fp16 on CPU
+        vals_np   = np.asarray(vs, dtype=np.float16)        # (N,)
+
+        boards = torch.from_numpy(boards_np)                         # uint8
+        pis    = torch.from_numpy(pis_np)                             # float16
+        vals   = torch.from_numpy(vals_np)                            # float16
+
+        packed = (boards.contiguous(), pis.contiguous(), vals.contiguous())
+        self.cache[path] = packed
+
+        # LRU eviction
         if len(self.cache) > self.cache_size:
             self.cache.popitem(last=False)
-        return lst
+
+        if self.verbose:
+            wi = get_worker_info()
+            wid = wi.id if wi is not None else 0
+            if wid == 0:
+                print(f"[dataset] shard {shard_idx:03d} loaded in {dt:.2f}s "
+                      f"({boards.size(0)} examples) cache={len(self.cache)}/{self.cache_size}",
+                      flush=True)
+        return packed
 
     def __getitem__(self, idx: int):
-        # find shard
+        # locate shard
         shard_idx = bisect.bisect_right(self.cum_sizes, idx)
         prev_cum = 0 if shard_idx == 0 else self.cum_sizes[shard_idx - 1]
         local_idx = idx - prev_cum
 
-        shard = self._load_shard(shard_idx)
-        b_np, p_np, v = shard[local_idx]
-
-        # robust tensor conversion (handles numpy or lists)
-        if isinstance(b_np, np.ndarray):
-            b = torch.from_numpy(b_np).to(self.dtype_boards)
-        else:
-            b = torch.tensor(b_np, dtype=self.dtype_boards)
-
-        if isinstance(p_np, np.ndarray):
-            pi = torch.from_numpy(p_np).to(self.dtype_pi)
-        else:
-            pi = torch.tensor(p_np, dtype=self.dtype_pi)
-
-        v_t = torch.tensor(float(v), dtype=self.dtype_v)
-        return b, pi, v_t
+        boards, pis, vals = self._load_shard(shard_idx)
+        # return *tensors* directly (no per-item numpy→torch)
+        return boards[local_idx], pis[local_idx], vals[local_idx]
 
 class SelfPlayDataset(Dataset):
     def __init__(self, examples: list[tuple[NDArray[np.float64], NDArray[np.float64], float]], board_size: int):
@@ -203,18 +230,13 @@ class NNetWrapper:
           - A policy vector (as log probabilities)
           - A value estimate (scalar)
         """
-        grid_size = self.board_size[0]  # assuming a square board
-        encoded_board = board.encode_board(grid_size=grid_size)
-        
-        # Add a batch dimension.
-        input_tensor = torch.FloatTensor(encoded_board).unsqueeze(0)
-        if self.args.cuda:
-            input_tensor = input_tensor.cuda()
-        
+        grid_size = self.board_size[0]
+        encoded = board.encode_board(grid_size=grid_size)
+
         self.nnet.eval()
         with torch.no_grad():
-            input_tensor = torch.as_tensor(encoded_board, dtype=torch.float32, device=self.device).unsqueeze(0)
-            pi, v = self.nnet(input_tensor)
+            x = torch.as_tensor(encoded, dtype=torch.float32, device=self.device).unsqueeze(0)
+            pi, v = self.nnet(x)
         return torch.exp(pi).detach().cpu().numpy()[0], v.detach().cpu().numpy()[0]
     
     def _is_dist(self) -> bool:
@@ -241,7 +263,7 @@ class NNetWrapper:
             num_workers=4 if self._is_dist() else 2,
             pin_memory=torch.cuda.is_available(),
             drop_last=True,
-            persistent_workers=False,
+            persistent_workers=True,
         )
 
         model = self.nnet
@@ -281,8 +303,8 @@ class NNetWrapper:
         batch_size: int | None = None,
         num_workers: int = 4,
         max_shards: int | None = None,
-        cache_size: int = 1,
-        log_every: int = 200,
+        cache_size: int = 2,
+        log_every: int = 100,
         dry_run: int = 0,   # set >0 to iterate N batches without model compute
     ):
         def _rank():
@@ -310,6 +332,8 @@ class NNetWrapper:
         print(f"[rank {_rank()}] [pretrain] shards={len(shard_paths)}  total_examples={total_examples} "
             f"avg/shard={total_examples/max(1,len(shard_paths)):.1f}", flush=True)
 
+        rank0_verbose = (not self._is_dist()) or (dist.get_rank() == 0)
+
         # ---------- Build loader ----------
         _, loader, sampler = make_human_loader(
             shard_dir=shard_dir,
@@ -319,6 +343,7 @@ class NNetWrapper:
             max_shards=max_shards,
             cache_size=cache_size,
             pin_memory=(self.device.type == "cuda"),
+            verbose=rank0_verbose
         )
 
         ds_len = len(loader.dataset)
@@ -351,7 +376,7 @@ class NNetWrapper:
 
         # ---- AMP (only enabled on CUDA) ----
         use_amp = (self.device.type == "cuda")
-        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+        scaler = GradScaler('cuda', enabled=use_amp)
 
         for epoch in range(1, epochs + 1):
             if sampler is not None:
@@ -383,19 +408,24 @@ class NNetWrapper:
                     vals = vals.to(self.device, non_blocking=True)
 
                     t_compute_start = time.perf_counter()
+                    # ----- forward (AMP autocast) -----
+                    with autocast('cuda', enabled=use_amp):
+                        out_pi, out_v = model(boards.float())   # out_pi is log-softmax, out_v is [-1,1]
 
-                    # ----- forward + loss (AMP autocast) -----
-                    with torch.cuda.amp.autocast(enabled=use_amp):
-                        out_pi, out_v = model(boards)          # out_pi is log-softmax
-                        loss_pi = -(pis * out_pi).sum(dim=1).mean()
-                        loss_v = F.mse_loss(out_v.view(-1), vals)
-                        loss = loss_pi + loss_v
+                    # ----- losses in fp32 for stability -----
+                    pis_f  = pis.float()
+                    vals_f = vals.float()
+                    out_pi_f = out_pi.float()
+                    out_v_f  = out_v.float()
+
+                    loss_pi = -(pis_f * out_pi_f).sum(dim=1).mean()
+                    loss_v  = F.mse_loss(out_v_f.view(-1), vals_f)
+                    loss    = loss_pi + loss_v
 
                     optimizer.zero_grad(set_to_none=True)
 
                     # ----- backward + step (AMP scaler) -----
                     scaler.scale(loss).backward()
-                    # for gradient clipping with AMP, unscale first
                     scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                     scaler.step(optimizer)

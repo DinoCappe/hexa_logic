@@ -27,7 +27,7 @@ def main():
         'lr': 0.001,
         'dropout': 0.3,
         'epochs': 10,
-        'batch_size': 64,
+        'batch_size': 128,
         'cuda': torch.cuda.is_available(),
         'distributed': True,
         'num_channels': 256,
@@ -63,7 +63,7 @@ def main():
             device_ids=[nnet_wrapper.local_rank],
             find_unused_parameters=False
         )
-        
+
     shards_dir = os.path.join('src/pre_training/UHP_games', "shards")
     train_wrapper = TrainExample('src/pre_training/UHP_games', game, nnet_wrapper)
 

@@ -18,6 +18,7 @@ import multiprocessing as mp  # add this at the top (you use mp.current_process(
 from multiprocessing import Manager, Pool, cpu_count
 from typing import Tuple
 from numpy.typing import NDArray
+import torch.distributed as dist
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
 
@@ -256,9 +257,27 @@ class TrainExample:
         return int(np.random.choice(valid_indices))
 
     def evaluate_training(self):
-        arena = Arena(self.random_agent_action,
-                self.mcts_agent_action,
-                self.game)
-        wins_random, wins_zero, draws = arena.playGames(10, 12)
-        print('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
+        if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:
+            return
+
+        checkpoint_folder = self.args.checkpoint
+        checkpoint_file = "pretrain_last.pth.tar"   # or whatever you saved
+        board_size = self.board_size
+        action_size = self.action_size
+        nnet_args = self.args  # will be forced to CPU in workers
+
+        arena = Arena(self.random_agent_action,  # used only to infer tokens
+                    self.mcts_agent_action,
+                    self.game)
+
+        wins_random, wins_zero, draws = arena.playGames(
+            num=10,
+            num_workers=12,  # whatever you like
+            checkpoint_folder=checkpoint_folder,
+            checkpoint_file=checkpoint_file,
+            board_size=board_size,
+            action_size=action_size,
+            nnet_args=nnet_args
+        )
+        print(f'ZERO/RANDOM WINS : {wins_zero} / {wins_random} ; DRAWS : {draws}')
         logging.info(f'ZERO/RANDOM WINS : {wins_zero} / {wins_random} ; DRAWS : {draws}')
