@@ -102,27 +102,23 @@ class GameWrapper:
                 try:
                     idx = board.encode_move_string(move, simple=False)
                     valid[idx] = 1.0
-                except Exception as e:
+                except ValueError as e:
                     print(f"Warning: Unable to encode move '{move}': {e}")
         # If no move was marked valid, mark the pass move (the last index) as valid.
         if np.sum(valid) == 0:
             valid[-1] = 1.0
         return valid
     
-    def getSynonymSpace(self, board: Board) -> NDArray[np.float64]:
+    def getSynonymSpace(self, board: Board) -> NDArray[np.int32]:
         """
         Returns a binary vector of length getActionSize() indicating with the same id (the first synonym's index) the valid moves that are synonyms.
         """
         valid_moves = board._get_valid_moves()
-        synonym_vector = np.zeros(self.getActionSize(), dtype=np.float64)
+        synonym_vector = np.zeros(self.getActionSize(), dtype=np.int32)
         for move in valid_moves:
             synonyms = board.stringify_move(move, True).split(";")
             id = board.encode_move_string(synonyms[0], simple=False)
             for synonym in synonyms:
                 idx = board.encode_move_string(synonym, simple=False)
-                if synonym_vector[idx] != 0:
-                    raise ValueError(
-                        f"Synonym {synonym}->{id} already has an ID: {synonym_vector[idx]}"
-                    )
                 synonym_vector[idx] = id
         return synonym_vector

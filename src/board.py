@@ -12,7 +12,7 @@ from collections.abc import Iterable
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
-MAX_TURNS = 300
+MAX_TURNS = 300 # to be updated to 100
 
 class Board():
   """
@@ -384,7 +384,7 @@ class Board():
             move_str = self.stringify_move(move)
             if self.encode_move_string(move_str, simple=simple) == index:
                 return move_str
-        except Exception:
+        except ValueError:
             pass
 
         # also try all synonym variants if not simple
@@ -397,9 +397,9 @@ class Board():
                     try:
                         if self.encode_move_string(synonym, simple=simple) == index:
                             return synonym
-                    except Exception:
+                    except ValueError:
                         continue
-            except Exception:
+            except ValueError:
                 pass
   
   def invert_colors(self) -> 'Board':

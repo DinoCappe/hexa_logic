@@ -92,6 +92,12 @@ class MCTSBrain(Brain):
             p_logits, v = self.nnet.predict(canon)
             valids = self.game.getValidMoves(rawBoard)
             p = p_logits * valids
+            # Normalize for synonyms
+            synonyms = self.game.getSynonymSpace(rawBoard)
+            for pos, value in enumerate(synonyms):
+                if p[pos] > 0 and value != pos and value is not None:
+                    p[value] += p[pos]
+                    p[pos] = 0.0
             p_sum = p.sum()
             self.Ps[s] = p / p_sum if p_sum > 0 else valids / valids.sum()
             self.Vs[s] = valids
