@@ -27,12 +27,13 @@ def main():
         'batch_size': 128,
         'cuda': torch.cuda.is_available(),
         'distributed': True,
+        'train_ddp': False,
         'num_channels': 256,
         'num_layers': 8,
         'mcts_iterations': 100,   
 
         'exploration_constant': 1.41,
-        'numEps': 100,                    
+        'numEps': 80,                    
         'maxlenOfQueue': 200000,
         'numMCTSSims': 25,          
         'tempThreshold': 15,
@@ -76,7 +77,7 @@ def main():
     if args.distributed:
         dist.barrier()
 
-    if args.distributed:
+    if args.distributed and args.train_ddp:
         import torch.distributed as dist
         from torch.nn.parallel import DistributedDataParallel as DDP
         nnet_wrapper.nnet = DDP(
@@ -84,6 +85,7 @@ def main():
             device_ids=[nnet_wrapper.local_rank],
             find_unused_parameters=False
         )
+        nnet_wrapper.ddp_wrapped = True
     coach = Coach(game, nnet_wrapper, args)
         
     print("Starting integrated learning loop...")

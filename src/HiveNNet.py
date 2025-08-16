@@ -25,22 +25,14 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 TrainingExample = Tuple[np.ndarray, np.ndarray, float]
 
-def setup_distributed():
-    """Setup distributed training with proper error handling"""
-    try:
-        # 1) figure out which local rank we are
-        local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        # 2) bind this process to the right GPU *before* init
-        if torch.cuda.is_available():
-            torch.cuda.set_device(local_rank)
-        # 3) now start the process group
-        if not dist.is_initialized():
-            backend = "nccl" if torch.cuda.is_available() else "gloo"
-            dist.init_process_group(backend=backend, init_method="env://")
-        return local_rank
-    except Exception as e:
-        logging.error(f"Failed to setup distributed training: {e}")
-        return 0
+def setup_distributed(train_ddp: bool = False):
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
+    backend = "nccl" if (torch.cuda.is_available() and train_ddp) else "gloo"
+    if not dist.is_initialized():
+        dist.init_process_group(backend=backend, init_method="env://")
+    return local_rank
     
 def make_human_loader(
     shard_dir: str,
@@ -206,9 +198,10 @@ class NNetWrapper:
         """
         self.args = args
         self.distributed = args.distributed
+        self.ddp_wrapped = False
 
         if self.distributed:
-            self.local_rank = setup_distributed()
+            self.local_rank = setup_distributed(train_ddp=args.train_ddp)
             self.device = torch.device(f"cuda:{self.local_rank}")
         else:
             self.local_rank = 0
@@ -240,7 +233,7 @@ class NNetWrapper:
         return torch.exp(pi).detach().cpu().numpy()[0], v.detach().cpu().numpy()[0]
     
     def _is_dist(self) -> bool:
-        return getattr(self, "distributed", False) and dist.is_available() and dist.is_initialized()
+        return bool(self.ddp_wrapped) and torch.distributed.is_available() and torch.distributed.is_initialized()
 
     def _rank0(self) -> bool:
         return (not self._is_dist()) or dist.get_rank() == 0

@@ -23,63 +23,53 @@ import os
 import numpy as np
 from numpy.typing import NDArray
 
+from multiprocessing import get_context
+from inference_server import InferenceServer
+from gpu_client import GPUClient, RemoteNNet
+from functools import partial
+from HiveNNet import HiveNNet
+
 
 log = logging.getLogger(__name__)
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
 
-def _init_worker_threads():
-    os.environ.setdefault("OMP_NUM_THREADS", "1")
-    os.environ.setdefault("MKL_NUM_THREADS", "1")
+_G_IN_Q = None
+_G_ARGS = None
+_G_BOARD_SIZE = None
+_G_ACTION_SIZE = None
+_G_GPU_CLIENT = None
+_G_WORKER_IDX = None  # optional for debug
 
-def _self_play_worker_process(args: dotdict,
-    board_size: tuple[int,int],
-    action_size: int,
-    checkpoint_folder: str,
-    checkpoint_file: str,
-    seed: int,
-    local_rank: int) -> list[TrainingExample]:
-    """
-    Re-run self-play in a fresh process:
-    - turn off distributed
-    - rebuild the network wrapper and load weights
-    - call executeEpisode()
-    """
-    try:
-        # 1. seed RNG
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+def _pool_init(q_in, reply_queues, counter, counter_lock, args, board_size, action_size):
+    # Atomically reserve an index
+    with counter_lock:
+        idx = counter.value
+        counter.value = idx + 1
+    idx = idx % max(1, len(reply_queues))
 
-        # 2. make a local copy of args, disable distributed
-        local_args: dotdict = copy.deepcopy(args)
-        local_args.distributed = False
-        
-        # 3. Handle CUDA device assignment for worker processes
-        if local_args.cuda and torch.cuda.is_available():
-            torch.cuda.set_device(local_rank)
+    reply_q = reply_queues[idx]
 
-        # 4. build a fresh network wrapper & load weights
-        nnet = NNetWrapper(board_size, action_size, local_args)
-        
-        # 5. Wait a bit and retry loading if file doesn't exist yet
-        import time
-        max_retries = 10
-        for attempt in range(max_retries):
-            try:
-                nnet.load_checkpoint(folder=checkpoint_folder, filename=checkpoint_file)
-                break
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    raise e
-                time.sleep(0.5)  # Wait 500ms before retry
+    from gpu_client import GPUClient
+    global _G_IN_Q, _G_ARGS, _G_BOARD_SIZE, _G_ACTION_SIZE, _G_GPU_CLIENT
+    _G_IN_Q = q_in
+    _G_ARGS = args
+    _G_BOARD_SIZE = board_size
+    _G_ACTION_SIZE = action_size
+    _G_GPU_CLIENT = GPUClient(in_q=q_in, reply_q=reply_q, timeout_s=180.0)
 
-        # 6. make a fresh Coach and run one episode
-        coach = Coach(GameWrapper(), nnet, local_args)
-        return coach.executeEpisode()
-        
-    except Exception as e:
-        log.error(f"Worker process failed with seed {seed}: {e}")
-        return []  # Return empty list on failure
+def _self_play_worker_entry(seed: int):
+    import copy, numpy as np, torch
+    from gameWrapper import GameWrapper
+    from gpu_client import RemoteNNet
+    local_args = copy.deepcopy(_G_ARGS)
+    local_args.distributed = False
+    local_args.cuda = False
+    np.random.seed(seed); torch.manual_seed(seed)
+
+    remote_nnet = RemoteNNet(_G_BOARD_SIZE, _G_ACTION_SIZE, _G_GPU_CLIENT)
+    coach = Coach(GameWrapper(), remote_nnet, local_args)
+    return coach.executeEpisode()
 
 class Coach:
     """
@@ -97,7 +87,68 @@ class Coach:
         self.maxlenOfQueue = args.maxlenOfQueue  
         self.tempThreshold = args.tempThreshold
         self.local_rank = dist.get_rank() if args.distributed else 0
+        self._mgr = None
 
+    def _start_inference_server(self, board_size, action_size):
+        device = torch.device(f"cuda:{self.nnet.local_rank}") if torch.cuda.is_available() else torch.device("cpu")
+        assert device.type == "cuda", "This server is meant for GPU inference."
+
+        model_ctor = partial(
+            HiveNNet, board_size, action_size,
+            num_channels=self.args.num_channels,
+            num_layers=self.args.num_layers,
+            dropout=self.args.dropout,
+        )
+
+        ckpt_path = os.path.join(self.args.checkpoint, "best.pth.tar")
+        if not os.path.exists(ckpt_path):
+            alt = os.path.join(self.args.checkpoint, "pretrain_last.pth.tar")
+            ckpt_path = alt if os.path.exists(alt) else ""
+
+        ctx = get_context("spawn")
+
+        # IMPORTANT: keep a strong reference to Manager on self
+        self._mgr = ctx.Manager()
+        in_q  = self._mgr.Queue(maxsize=4096)
+        out_q = self._mgr.Queue(maxsize=4096)
+
+        server = InferenceServer(
+            model_ctor=model_ctor,
+            checkpoint_path=ckpt_path,
+            device=device,
+            in_q=in_q,
+            out_q=out_q,
+            max_batch=128,
+            max_wait_ms=12.0,
+            use_amp=True,
+            log_prefix=f"[GPU-SERVER R{self.nnet.local_rank}]"
+        )
+        server.start()
+        return server, in_q, out_q
+
+    def _stop_inference_server(self, server, in_q):
+        # 1) Tell server to stop
+        try:
+            in_q.put(None)
+        except Exception:
+            pass
+
+        # 2) Wait for it to exit
+        try:
+            server.join(timeout=20)
+            if server.is_alive():
+                # last resort: terminate (shouldn't be needed normally)
+                server.terminate()
+                server.join(timeout=10)
+        except Exception:
+            pass
+
+        # 3) Now it is safe to stop the Manager
+        try:
+            if getattr(self, "_mgr", None) is not None:
+                self._mgr.shutdown()
+        finally:
+            self._mgr = None
 
     def random_agent_action(self, board: Board, player: int) -> int:
         """
@@ -131,30 +182,26 @@ class Coach:
         Callable[[Board,int],int].
         """
         return self._mcts_core(board, player, self.nnet)
-    
-    def executeEpisodePool(self, n_games_per_rank: int = 10) -> List[TrainingExample]:
-        """Run N games in parallel processes and collect examples."""
+        
+    def executeEpisodePool(self, n_games_per_rank: int, in_q) -> list[TrainingExample]:
         seeds = [self.local_rank * 10000 + i for i in range(n_games_per_rank)]
-        board_size = self.nnet.board_size  if not hasattr(self.nnet, 'module') else self.nnet.module.board_size
+        board_size  = self.nnet.board_size  if not hasattr(self.nnet, 'module') else self.nnet.module.board_size
         action_size = self.nnet.action_size if not hasattr(self.nnet, 'module') else self.nnet.module.action_size
-        ckpt_folder = self.args.checkpoint
-        ckpt_file = 'temp.pth.tar'
 
-        # Prepare args for starmap
-        tasks = [
-            (self.args, board_size, action_size,
-             ckpt_folder, ckpt_file,
-             seed, self.local_rank)
-            for seed in seeds
-        ]
-
-        # Spawn pool, run in isolated processes
+        processes = n_games_per_rank
         ctx = mp.get_context('spawn')
-        with ctx.Pool(processes=n_games_per_rank,
-                    initializer=_init_worker_threads) as pool:
-            results = pool.starmap(_self_play_worker_process, tasks)
 
-        # flatten
+        reply_queues = [self._mgr.Queue(maxsize=1024) for _ in range(processes)]
+        counter      = self._mgr.Value('i', 0)      # ValueProxy
+        counter_lock = self._mgr.Lock()             # LockProxy
+
+        with ctx.Pool(
+            processes=processes,
+            initializer=_pool_init,
+            initargs=(in_q, reply_queues, counter, counter_lock, self.args, board_size, action_size),
+        ) as pool:
+            results = pool.map(_self_play_worker_entry, seeds)
+
         return [ex for sub in results for ex in sub]
 
     def executeEpisode(self) -> List[TrainingExample]:
@@ -199,23 +246,23 @@ class Coach:
             
     def learn(self):
         """
-        Performs iterative self-play and training.
-        After each iteration, it pits the new network against the previous version.
-        The new network is accepted only if it wins at or above a threshold.
+        Iterative self-play + training loop with a per-rank GPU inference server.
+        - Each rank starts one CUDA inference server (batched predict).
+        - Self-play runs in CPU workers; they query the server for NN evals.
+        - We sync *per self-play batch* (frequent barriers) to keep ranks aligned.
         """
-        numIters = self.args.numIters
-        model_iteration = 1
-
+        # ----- distributed setup -----
         if self.args.distributed:
             world_size = dist.get_world_size()
             rank = dist.get_rank()
-            # Create a Gloo-based group for Python-object collectives
+            # a Gloo group for Python-object collectives
             ranks = list(range(world_size))
             self.gloo_group = dist.new_group(ranks=ranks, backend="gloo")
         else:
             world_size = 1
             rank = 0
 
+        # ----- resume self-play history if present (rank-agnostic read) -----
         history_path = f"{self.args.results}/selfplay_iter_*.pkl"
         files = sorted(glob.glob(history_path))
         if files:
@@ -223,115 +270,141 @@ class Coach:
                 self.trainExamplesHistory = pickle.load(f)
             print(f"[R{rank}] Loaded {sum(len(d) for d in self.trainExamplesHistory)} examples from disk")
 
-        # Evaluate initial performance against a random baseline.
+        # ----- quick baseline vs random (single-process) -----
         if rank == 0:
             arena = Arena(self.random_agent_action, self.mcts_agent_action, self.game)
             wins_random, wins_zero, draws = arena.playGames(5)
             logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
             print('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
 
+        # derive model sizes for the inference server
+        board_size  = self.nnet.board_size  if not hasattr(self.nnet, 'module') else self.nnet.module.board_size
+        action_size = self.nnet.action_size if not hasattr(self.nnet, 'module') else self.nnet.module.action_size
+
+        numIters = self.args.numIters
+        model_iteration = 1
+
         for i in range(1, numIters + 1):
             logging.info(f'[R{rank}] Starting Iteration {i} ...')
-            print(f'[R{rank}] Starting Iteration {i} ...')
+            print(f'[R{rank}] Starting Iteration {i} ...', flush=True)
 
-            # where we accumulate THIS iteration’s examples (rank0 builds the global version)
-            iterationTrainExamples: Deque[TrainingExample] = deque([], maxlen=self.maxlenOfQueue)
+            # ===== start the per-rank GPU inference server =====
+            server, in_q, out_q = self._start_inference_server(board_size, action_size)
 
-            eps_per_rank = self.args.numEps // world_size
-            batch = getattr(self.args, "selfplay_workers_per_rank", 10)
-            done = 0
+            try:
+                # ===== self-play, batched with frequent sync =====
+                eps_per_rank = self.args.numEps // world_size
+                batch = 10
+                done = 0
 
-            # Rank 0 will build this from per-batch gathers
-            if rank == 0:
-                combined_iteration: list[TrainingExample] = []
-            else:
-                combined_iteration = None  # type: ignore
+                # rank-local buffer; rank0 will merge everyone’s per-batch lists
+                iterationTrainExamples_local = deque([], maxlen=self.maxlenOfQueue)
 
-            # micro-batched self-play + frequent sync
-            while done < eps_per_rank:
-                n = min(batch, eps_per_rank - done)
+                # rank0 staging buffer for merged batch-by-batch results
+                merged_this_iter_rank0 = [] if rank == 0 else None
 
-                # Run n games in parallel (per rank)
-                examples = self.executeEpisodePool(n_games_per_rank=n)
-                # Keep local copy (useful even when distributed=False)
-                if examples:
-                    iterationTrainExamples.extend(examples)
+                while done < eps_per_rank:
+                    n = min(batch, eps_per_rank - done)
 
-                done += n
-                logging.info(f"[R{rank}] self-play progress: {done}/{eps_per_rank} games")
-                print(f"[R{rank}] self-play progress: {done}/{eps_per_rank} games", flush=True)
+                    # run n games in parallel on this rank; workers query the GPU server
+                    examples = self.executeEpisodePool(n_games_per_rank=n, in_q=in_q)
+                    if examples:
+                        iterationTrainExamples_local.extend(examples)
 
+                    done += n
+                    logging.info(f"[R{rank}] self-play progress: {done}/{eps_per_rank} games")
+                    print(f"[R{rank}] self-play progress: {done}/{eps_per_rank} games", flush=True)
+
+                    # ---- frequent sync: exchange JUST this batch ----
+                    if self.args.distributed:
+                        local_batch = list(examples) if examples else []
+
+                        # 1) align ranks at batch boundary
+                        dist.barrier(group=self.gloo_group)
+
+                        # 2) gather this small python list
+                        all_batches = [None] * world_size
+                        dist.all_gather_object(all_batches, local_batch, group=self.gloo_group)
+
+                        # 3) rank0 merges the batch across ranks
+                        if rank == 0:
+                            for sub in all_batches:
+                                if sub:
+                                    merged_this_iter_rank0.extend(sub)
+
+                        # 4) optional barrier to keep tempo similar
+                        dist.barrier(group=self.gloo_group)
+
+                # ===== after self-play batches, finalize examples =====
                 if self.args.distributed:
-                    # gather just this batch’s results from all ranks
-                    local_batch = list(examples) if examples else []
-                    all_batches = [None] * world_size
-                    dist.all_gather_object(all_batches, local_batch, group=self.gloo_group)
-
                     if rank == 0:
-                        for sub in all_batches:
-                            if sub:
-                                combined_iteration.extend(sub)
+                        combined_iteration = merged_this_iter_rank0
+                    else:
+                        # non-zero ranks have already contributed per-batch;
+                        # nothing more to send; keep an empty list locally.
+                        combined_iteration = []
+                else:
+                    combined_iteration = list(iterationTrainExamples_local)
 
-                    # optional but helps keep ranks together
-                    dist.barrier(group=self.gloo_group)
-
-            # pick the set we’ll train on (rank 0 only)
-            if self.args.distributed:
+                # ===== train + evaluate on rank 0 =====
                 if rank == 0:
-                    current_iter_examples = combined_iteration
-                else:
-                    current_iter_examples = None
-            else:
-                current_iter_examples = list(iterationTrainExamples)
+                    # maintain rolling history
+                    self.trainExamplesHistory.append(combined_iteration)
+                    if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+                        self.trainExamplesHistory.pop(0)
 
-            # ==== TRAIN / EVAL ONLY ON RANK 0 ====
-            if rank == 0 and current_iter_examples is not None:
-                # append to rolling history
-                self.trainExamplesHistory.append(current_iter_examples)
-                if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
-                    self.trainExamplesHistory.pop(0)
+                    # flatten & shuffle
+                    trainExamples = []
+                    for ex in self.trainExamplesHistory:
+                        trainExamples.extend(ex)
+                    shuffle(trainExamples)
+                    converted_examples = [(b, p, float(o)) for (b, p, o) in trainExamples]
 
-                # combine history
-                trainExamples = []
-                for ex in self.trainExamplesHistory:
-                    trainExamples.extend(ex)
-                shuffle(trainExamples)
+                    # snapshot current model as "previous"
+                    self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
 
-                converted_examples = [(b, p, float(o)) for (b, p, o) in trainExamples]
+                    # train on the collected examples (local GPU via DDP or single)
+                    logging.info(f"[R0] TRAIN on {len(converted_examples)} examples")
+                    self.nnet.train(converted_examples)
 
-                # save current as "temp" for comparison (optional if you already use best.pth.tar)
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                    # pit new vs previous (single-process arena)
+                    logging.info('PITTING AGAINST PREVIOUS VERSION')
+                    arena = Arena(self.mcts_prev_agent_action,  # player1 => old net
+                                self.mcts_agent_action,       # player2 => new net
+                                self.game)
+                    pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+                    logging.info('NEW/PREV WINS : %d / %d ; DRAWS : %d', nwins, pwins, draws)
 
-                # train the new model on the combined examples
-                self.nnet.train(trainExamples)
+                    # accept / reject
+                    if (pwins + nwins == 0) or (float(nwins) / max(1, (pwins + nwins)) < self.args.updateThreshold):
+                        logging.info('REJECTING NEW MODEL')
+                        # rollback to previous
+                        self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                    else:
+                        logging.info('ACCEPTING NEW MODEL')
+                        model_iteration += 1
+                        self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
-                # pit new vs previous
-                logging.info('PITTING AGAINST PREVIOUS VERSION')
-                arena = Arena(self.mcts_prev_agent_action, self.mcts_agent_action, self.game)
-                pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
-                logging.info('NEW/PREV WINS : %d / %d ; DRAWS : %d', nwins, pwins, draws)
+                        # quick baseline vs random
+                        logging.info('PITTING AGAINST RANDOM BASELINE')
+                        arena = Arena(self.random_agent_action, self.mcts_agent_action, self.game)
+                        wins_random, wins_zero, draws = arena.playGames(50)
+                        logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
+                        with open(f"{self.args.results}/random_baseline.csv", 'a') as outfile:
+                            csv.writer(outfile).writerow([model_iteration, wins_zero, wins_random])
 
-                if (pwins + nwins == 0) or (float(nwins) / (pwins + nwins) < self.args.updateThreshold):
-                    logging.info('REJECTING NEW MODEL')
-                    self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-                else:
-                    logging.info('ACCEPTING NEW MODEL')
-                    model_iteration += 1
-                    self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
-                    logging.info('PITTING AGAINST RANDOM BASELINE')
-                    arena = Arena(self.random_agent_action, self.mcts_agent_action, self.game)
-                    wins_random, wins_zero, draws = arena.playGames(50)
-                    logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
-                    with open(f"{self.args.results}/random_baseline.csv", 'a') as outfile:
-                        csvwriter = csv.writer(outfile)
-                        csvwriter.writerow([model_iteration, wins_zero, wins_random])
+                    logging.info("Iteration %d completed. Collected examples this iter: %d",
+                                i, len(converted_examples))
 
-                logging.info("Iteration %d completed. Collected examples: %d", i, len(converted_examples))
+                    # persist history for crash-resume
+                    with open(f"{self.args.results}/selfplay_iter_{i}.pkl", "wb") as f:
+                        pickle.dump(self.trainExamplesHistory, f)
 
-                with open(f"{self.args.results}/selfplay_iter_{i}.pkl", "wb") as f:
-                    pickle.dump(self.trainExamplesHistory, f)
+            finally:
+                # always stop the inference server (even on errors)
+                self._stop_inference_server(server, in_q)
 
-            # make non-zero ranks wait for rank 0 to finish training/eval before next iteration
+            # keep ranks together between iterations
             if self.args.distributed:
                 dist.barrier()
 
