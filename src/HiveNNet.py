@@ -19,6 +19,7 @@ from collections import OrderedDict
 import math, time
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import get_worker_info
+from datetime import timedelta
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -31,7 +32,7 @@ def setup_distributed(train_ddp: bool = False):
         torch.cuda.set_device(local_rank)
     backend = "nccl" if (torch.cuda.is_available() and train_ddp) else "gloo"
     if not dist.is_initialized():
-        dist.init_process_group(backend=backend, init_method="env://")
+        dist.init_process_group(backend=backend, init_method="env://", timeout=timedelta(hours=2)),
     return local_rank
     
 def make_human_loader(

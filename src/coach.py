@@ -406,7 +406,7 @@ class Coach:
 
             # keep ranks together between iterations
             if self.args.distributed:
-                dist.barrier()
+                dist.barrier(group=self.gloo_group)
 
         if self.args.distributed:
             dist.destroy_process_group()
