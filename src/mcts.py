@@ -1,4 +1,5 @@
 import math
+from time import time
 import numpy as np
 from typing import Dict, Tuple, Optional
 from numpy.typing import NDArray
@@ -8,23 +9,9 @@ from gameWrapper import GameWrapper
 from HiveNNet import NNetWrapper
 from utils import dotdict
 from enums import PlayerColor
-import signal
-from contextlib import contextmanager
 
 EPS = 1e-8
-
-class TimeoutException(Exception): pass
-
-@contextmanager
-def time_limit(seconds: float):
-    def signal_handler(signum, frame):
-        raise TimeoutException("Timed out!")
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
-    try:
-        yield
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
+TIMEOUT_CODE = math.inf
 
 class MCTSBrain(Brain):
     def __init__(self, game: Optional[GameWrapper] = None, nnet: Optional[NNetWrapper] = None, args: Optional[dotdict] = None):
@@ -43,12 +30,9 @@ class MCTSBrain(Brain):
             for _ in range(self.args.numMCTSSims):
                 self.search(rawBoard)
         else:
-            with time_limit(max_time):
-                try:
-                    while True:
-                        self.search(rawBoard)
-                except TimeoutException:
-                    pass
+            timing = time() + max_time
+            while timing > time():
+                self.search(rawBoard)
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
         s = rawBoard.stringRepresentation() if player == 1 else rawBoard.invert_colors().stringRepresentation()
 
@@ -67,7 +51,6 @@ class MCTSBrain(Brain):
         return np.array([x / total for x in counts], dtype=np.float64)
 
     def calculate_best_move(self, board: Board, max_time: Optional[float] = None) -> str:
-        # add openings
         probs = self.getActionProb(board, temp=0, max_time=max_time)
         valid_moves = self.game.getValidMoves(board)
         masked_probs = probs * valid_moves
@@ -78,7 +61,7 @@ class MCTSBrain(Brain):
             best_action_index = int(np.random.choice(valid_indices))
         return board.decode_move_index(best_action_index)
 
-    def search(self, rawBoard: Board) -> float:
+    def search(self, rawBoard: Board, max_time: Optional[float] = None) -> float:
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
         s = rawBoard.stringRepresentation() if player == 1 else rawBoard.invert_colors().stringRepresentation()
 
@@ -89,7 +72,11 @@ class MCTSBrain(Brain):
         # Leaf node expansion
         if s not in self.Ps:
             canon = rawBoard if player == 1 else rawBoard.invert_colors()
+            if max_time is not None and time() > max_time:
+                return TIMEOUT_CODE
             p_logits, v = self.nnet.predict(canon)
+            if max_time is not None and time() > max_time:
+                return TIMEOUT_CODE
             valids = self.game.getValidMoves(rawBoard)
             p = p_logits * valids
             # Normalize for synonyms
@@ -113,6 +100,8 @@ class MCTSBrain(Brain):
         best_a = valid_idxs[0]
         best_u = self.Qsa.get((s,best_a), 0) + self.args.cpuct * self.Ps[s][best_a] * math.sqrt(self.Ns[s] + EPS)/(1 + self.Nsa.get((s,best_a), 0))
 
+        if max_time is not None and time() > max_time:
+            return TIMEOUT_CODE
         # Select action with highest UCB
         for a in valid_idxs:
             if (s, a) in self.Qsa:
@@ -124,7 +113,11 @@ class MCTSBrain(Brain):
 
         # Recur
         next_raw, _ = self.game.getNextState(rawBoard, player, best_a)
-        v = self.search(next_raw)
+        if max_time is not None and time() > max_time:
+            return TIMEOUT_CODE
+        v = self.search(next_raw, max_time=max_time)
+        if v == TIMEOUT_CODE:
+            return TIMEOUT_CODE
 
         # Backprop
         if (s, best_a) in self.Qsa:
