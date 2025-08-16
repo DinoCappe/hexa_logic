@@ -28,6 +28,10 @@ log = logging.getLogger(__name__)
 
 TrainingExample = Tuple[NDArray[np.float64], NDArray[np.float64], float]
 
+def _init_worker_threads():
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 def _self_play_worker_process(args: dotdict,
     board_size: tuple[int,int],
     action_size: int,
@@ -128,7 +132,7 @@ class Coach:
         """
         return self._mcts_core(board, player, self.nnet)
     
-    def executeEpisodePool(self, n_games_per_rank: int = 1) -> List[TrainingExample]:
+    def executeEpisodePool(self, n_games_per_rank: int = 10) -> List[TrainingExample]:
         """Run N games in parallel processes and collect examples."""
         seeds = [self.local_rank * 10000 + i for i in range(n_games_per_rank)]
         board_size = self.nnet.board_size  if not hasattr(self.nnet, 'module') else self.nnet.module.board_size
@@ -146,7 +150,8 @@ class Coach:
 
         # Spawn pool, run in isolated processes
         ctx = mp.get_context('spawn')
-        with ctx.Pool(processes=n_games_per_rank) as pool:
+        with ctx.Pool(processes=n_games_per_rank,
+                    initializer=_init_worker_threads) as pool:
             results = pool.starmap(_self_play_worker_process, tasks)
 
         # flatten
@@ -161,7 +166,7 @@ class Coach:
 
         while True:
             episodeStep += 1
-            print("[EXE EPISODE] Original board:", board)
+            # print("[EXE EPISODE] Original board:", board)
 
             temp = 1 if episodeStep < self.tempThreshold else 0
 
@@ -171,7 +176,7 @@ class Coach:
             for b, p in symmetries:
                 # b is now an NDArray[np.float64] (the encoded board)
                 trainExamples.append((b, p, 0.0))  # Use a placeholder 0.0 instead of None.
-                print("Number of training examples generated: ", len(trainExamples))
+                # print("Number of training examples generated: ", len(trainExamples))
             
             # Check that the selected action is valid.
             action = np.random.choice(len(pi), p=pi)
@@ -185,7 +190,7 @@ class Coach:
                 action = np.random.choice(valid_indices)
                 print("[EXE EPISODE] Resampled action:", action)
 
-            print("[EXECUTE EPISODE] Randomly selected action: ", action)
+            # print("[EXECUTE EPISODE] Randomly selected action: ", action)
             board, currentPlayer = self.game.getNextState(board, player, action)
             r = self.game.getGameEnded(board, player)
             if r != 0:
@@ -204,7 +209,6 @@ class Coach:
         if self.args.distributed:
             world_size = dist.get_world_size()
             rank = dist.get_rank()
-
             # Create a Gloo-based group for Python-object collectives
             ranks = list(range(world_size))
             self.gloo_group = dist.new_group(ranks=ranks, backend="gloo")
@@ -221,50 +225,69 @@ class Coach:
 
         # Evaluate initial performance against a random baseline.
         if rank == 0:
-            arena = Arena(self.random_agent_action,
-                self.mcts_agent_action,
-                self.game)
+            arena = Arena(self.random_agent_action, self.mcts_agent_action, self.game)
             wins_random, wins_zero, draws = arena.playGames(5)
             logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
+            print('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
 
         for i in range(1, numIters + 1):
             logging.info(f'[R{rank}] Starting Iteration {i} ...')
+            print(f'[R{rank}] Starting Iteration {i} ...')
+
+            # where we accumulate THIS iteration’s examples (rank0 builds the global version)
             iterationTrainExamples: Deque[TrainingExample] = deque([], maxlen=self.maxlenOfQueue)
 
-            # Save current model state before self-play
-            if rank == 0:
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            
-            # Wait for rank 0 to save checkpoint before all ranks start self-play
-            if self.args.distributed:
-                dist.barrier()
-
             eps_per_rank = self.args.numEps // world_size
-            for _ in range(eps_per_rank):
-                examples = self.executeEpisodePool()
+            batch = getattr(self.args, "selfplay_workers_per_rank", 10)
+            done = 0
+
+            # Rank 0 will build this from per-batch gathers
+            if rank == 0:
+                combined_iteration: list[TrainingExample] = []
+            else:
+                combined_iteration = None  # type: ignore
+
+            # micro-batched self-play + frequent sync
+            while done < eps_per_rank:
+                n = min(batch, eps_per_rank - done)
+
+                # Run n games in parallel (per rank)
+                examples = self.executeEpisodePool(n_games_per_rank=n)
+                # Keep local copy (useful even when distributed=False)
                 if examples:
                     iterationTrainExamples.extend(examples)
 
-            # Gather examples from all ranks
+                done += n
+                logging.info(f"[R{rank}] self-play progress: {done}/{eps_per_rank} games")
+                print(f"[R{rank}] self-play progress: {done}/{eps_per_rank} games", flush=True)
+
+                if self.args.distributed:
+                    # gather just this batch’s results from all ranks
+                    local_batch = list(examples) if examples else []
+                    all_batches = [None] * world_size
+                    dist.all_gather_object(all_batches, local_batch, group=self.gloo_group)
+
+                    if rank == 0:
+                        for sub in all_batches:
+                            if sub:
+                                combined_iteration.extend(sub)
+
+                    # optional but helps keep ranks together
+                    dist.barrier(group=self.gloo_group)
+
+            # pick the set we’ll train on (rank 0 only)
             if self.args.distributed:
-                all_examples = [None] * world_size
-
-                # Gather over Gloo so we don’t hit NCCL broadcast timeouts
-                dist.all_gather_object(
-                    all_examples,
-                    list(iterationTrainExamples),
-                    group=self.gloo_group
-                )
-
-                combined_iteration = []
-                for sub in all_examples:
-                    if sub:
-                        combined_iteration.extend(sub)
+                if rank == 0:
+                    current_iter_examples = combined_iteration
+                else:
+                    current_iter_examples = None
             else:
-                combined_iteration = list(iterationTrainExamples)
+                current_iter_examples = list(iterationTrainExamples)
 
-            if rank == 0:
-                self.trainExamplesHistory.append(combined_iteration)
+            # ==== TRAIN / EVAL ONLY ON RANK 0 ====
+            if rank == 0 and current_iter_examples is not None:
+                # append to rolling history
+                self.trainExamplesHistory.append(current_iter_examples)
                 if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                     self.trainExamplesHistory.pop(0)
 
@@ -273,21 +296,21 @@ class Coach:
                 for ex in self.trainExamplesHistory:
                     trainExamples.extend(ex)
                 shuffle(trainExamples)
-            
+
                 converted_examples = [(b, p, float(o)) for (b, p, o) in trainExamples]
-                
-                # Load previous model for comparison
-                self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-                
-                self.nnet.train(trainExamples)      # Train on collected examples
-                
+
+                # save current as "temp" for comparison (optional if you already use best.pth.tar)
+                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+
+                # train the new model on the combined examples
+                self.nnet.train(trainExamples)
+
+                # pit new vs previous
                 logging.info('PITTING AGAINST PREVIOUS VERSION')
-                arena = Arena(self.mcts_prev_agent_action,   # player1 ⇒ old net
-                    self.mcts_agent_action,                  # player2 ⇒ new net
-                    self.game)
-                
+                arena = Arena(self.mcts_prev_agent_action, self.mcts_agent_action, self.game)
                 pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
                 logging.info('NEW/PREV WINS : %d / %d ; DRAWS : %d', nwins, pwins, draws)
+
                 if (pwins + nwins == 0) or (float(nwins) / (pwins + nwins) < self.args.updateThreshold):
                     logging.info('REJECTING NEW MODEL')
                     self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
@@ -296,19 +319,19 @@ class Coach:
                     model_iteration += 1
                     self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
                     logging.info('PITTING AGAINST RANDOM BASELINE')
-                    arena = Arena(self.random_agent_action,
-                        self.mcts_agent_action,     # new net
-                        self.game)
+                    arena = Arena(self.random_agent_action, self.mcts_agent_action, self.game)
                     wins_random, wins_zero, draws = arena.playGames(50)
                     logging.info('ZERO/RANDOM WINS : %d / %d ; DRAWS : %d', wins_zero, wins_random, draws)
                     with open(f"{self.args.results}/random_baseline.csv", 'a') as outfile:
                         csvwriter = csv.writer(outfile)
                         csvwriter.writerow([model_iteration, wins_zero, wins_random])
+
                 logging.info("Iteration %d completed. Collected examples: %d", i, len(converted_examples))
 
                 with open(f"{self.args.results}/selfplay_iter_{i}.pkl", "wb") as f:
                     pickle.dump(self.trainExamplesHistory, f)
 
+            # make non-zero ranks wait for rank 0 to finish training/eval before next iteration
             if self.args.distributed:
                 dist.barrier()
 

@@ -256,28 +256,28 @@ class TrainExample:
         valid_indices = np.nonzero(valid)[0]
         return int(np.random.choice(valid_indices))
 
-    def evaluate_training(self):
+    def evaluate_training(self, num_games: int = 10, num_workers: int = 10):
+        # only rank 0 evaluates (avoids DDP collisions)
         if dist.is_available() and dist.is_initialized() and dist.get_rank() != 0:
             return
 
-        checkpoint_folder = self.args.checkpoint
-        checkpoint_file = "pretrain_last.pth.tar"   # or whatever you saved
-        board_size = self.board_size
-        action_size = self.action_size
-        nnet_args = self.args  # will be forced to CPU in workers
+        # pull everything from the wrapper
+        args = self.nnet.args
+        board_size = self.nnet.board_size
+        action_size = self.nnet.action_size
+        ckpt_folder = args.checkpoint
+        ckpt_file = "pretrain_last.pth.tar"
 
-        arena = Arena(self.random_agent_action,  # used only to infer tokens
+        try:
+            self.nnet.load_checkpoint(folder=ckpt_folder, filename=ckpt_file)
+            print(f"[evaluate_training] loaded {os.path.join(ckpt_folder, ckpt_file)}")
+        except Exception as e:
+            print(f"[evaluate_training] warning: failed to load checkpoint ({e}); evaluating current weights")
+
+        arena = Arena(self.random_agent_action,
                     self.mcts_agent_action,
                     self.game)
 
-        wins_random, wins_zero, draws = arena.playGames(
-            num=10,
-            num_workers=12,  # whatever you like
-            checkpoint_folder=checkpoint_folder,
-            checkpoint_file=checkpoint_file,
-            board_size=board_size,
-            action_size=action_size,
-            nnet_args=nnet_args
-        )
+        wins_random, wins_zero, draws = arena.playGames(10)
         print(f'ZERO/RANDOM WINS : {wins_zero} / {wins_random} ; DRAWS : {draws}')
         logging.info(f'ZERO/RANDOM WINS : {wins_zero} / {wins_random} ; DRAWS : {draws}')

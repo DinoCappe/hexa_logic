@@ -24,7 +24,7 @@ def main():
         'lr': 0.001,
         'dropout': 0.3,
         'epochs': 10,
-        'batch_size': 64,
+        'batch_size': 128,
         'cuda': torch.cuda.is_available(),
         'distributed': True,
         'num_channels': 256,
@@ -52,6 +52,30 @@ def main():
     game = GameWrapper()
     action_size = game.getActionSize()
     nnet_wrapper = NNetWrapper(board_size, action_size, args)
+
+    # --- load pretrained weights if present ---
+    pretrain_ckpt = os.path.join(args.checkpoint, "pretrain_last.pth.tar")
+    if os.path.isfile(pretrain_ckpt):
+        try:
+            nnet_wrapper.load_checkpoint(folder=args.checkpoint, filename="pretrain_last.pth.tar")
+            print("[main] loaded pretrained checkpoint:", pretrain_ckpt)
+        except Exception as e:
+            print("[main] WARNING: failed to load pretrained checkpoint:", e)
+
+    if args.distributed:
+        import torch.distributed as dist
+        is_rank0 = (dist.get_rank() == 0)
+    else:
+        is_rank0 = True
+
+    if is_rank0:
+        nnet_wrapper.save_checkpoint(folder=args.checkpoint, filename="best.pth.tar")
+        nnet_wrapper.save_checkpoint(folder=args.checkpoint, filename="temp.pth.tar")
+        print("[main] seeded best.pth.tar and temp.pth.tar from pretrained weights")
+
+    if args.distributed:
+        dist.barrier()
+
     if args.distributed:
         import torch.distributed as dist
         from torch.nn.parallel import DistributedDataParallel as DDP
@@ -62,7 +86,6 @@ def main():
         )
     coach = Coach(game, nnet_wrapper, args)
         
-    # Now, run the integrated learning loop for a couple of iterations.
     print("Starting integrated learning loop...")
     coach.learn()
     print("Learning loop finished.")

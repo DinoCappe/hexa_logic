@@ -269,19 +269,26 @@ class NNetWrapper:
         model = self.nnet
         optimizer = torch.optim.Adam(model.parameters(), lr=self.args.lr)
 
+        rank = (dist.get_rank() if (self.distributed and dist.is_available() and dist.is_initialized()) else 0)
+        logging.info(f"[R{rank}] STARTING TRAINING")
+
         for epoch in range(1, self.args.epochs + 1):
             if sampler is not None: sampler.set_epoch(epoch)
             model.train()
             total_pi = total_v = nb = 0
+
+            logging.info(f"[R{rank}]  → Epoch {epoch} starting")
+            print(f"[R{rank}][TRAIN] Epoch {epoch} ...")
+
             for boards, pis, vals in loader:
                 boards = boards.to(self.device, non_blocking=True)
-                pis    = pis.to(self.device, non_blocking=True)
-                vals   = vals.to(self.device, non_blocking=True)
+                pis = pis.to(self.device, non_blocking=True)
+                vals = vals.to(self.device, non_blocking=True)
 
                 out_pi, out_v = model(boards)          # out_pi is log-softmax in your net
                 loss_pi = -(pis * out_pi).sum(dim=1).mean()
-                loss_v  = F.mse_loss(out_v.view(-1), vals)
-                loss    = loss_pi + loss_v
+                loss_v = F.mse_loss(out_v.view(-1), vals)
+                loss = loss_pi + loss_v
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -523,7 +530,7 @@ class HiveNNet(nn.Module):
         self.num_channels = num_channels
         self.num_layers = num_layers
         self.dropout = dropout
-        self.adapt = nn.AdaptiveAvgPool2d((2, 2))
+        self.adapt = nn.AdaptiveAvgPool2d((14, 14))
         
         in_channels = 4
 
@@ -542,7 +549,7 @@ class HiveNNet(nn.Module):
             self.convs.append(nn.Conv2d(self.num_channels, self.num_channels, kernel_size=3, stride=1))
             self.bns.append(nn.BatchNorm2d(self.num_channels))
         
-        flattened_size = self.num_channels * 2 * 2  # thanks to AdaptiveAvgPool2d((2,2))
+        flattened_size = self.num_channels * 14 * 14  # thanks to AdaptiveAvgPool2d((2,2))
         
         # Fully connected layers.
         self.fc1 = nn.Linear(flattened_size, 4096)
