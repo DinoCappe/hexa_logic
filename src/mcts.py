@@ -63,12 +63,11 @@ class MCTSBrain(Brain):
 
     def search(self, rawBoard: Board, max_time: Optional[float] = None) -> float:
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
-        s = rawBoard.stringRepresentation() if player == 1 else rawBoard.invert_colors().stringRepresentation()
-
         outcome = self.game.getGameEnded(rawBoard, player)
         if outcome != 0:
             return -outcome
-
+        
+        s = rawBoard.stringRepresentation() if player == 1 else rawBoard.invert_colors().stringRepresentation()
         # Leaf node expansion
         if s not in self.Ps:
             canon = rawBoard if player == 1 else rawBoard.invert_colors()
@@ -92,7 +91,7 @@ class MCTSBrain(Brain):
             return -v
 
         # Retrieve cached
-        valids = self.Vs[s] = self.game.getValidMoves(rawBoard)
+        valids = self.Vs[s]
 
         # Initialize best action from first valid index
         valid_idxs = [i for i,v in enumerate(valids) if v]

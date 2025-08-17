@@ -2,11 +2,11 @@ from typing import TypeGuard, Final, Optional
 from enums import Command
 from board import Board, ACTION_SPACE_SIZE
 from game import Move
-from ai import Brain #, Random
 from copy import deepcopy
 from mcts import MCTSBrain
 from HiveNNet import NNetWrapper
 from utils import dotdict
+from time import time
 import torch
 
 class Engine():
@@ -90,7 +90,7 @@ Engine version.
     """
     Handles 'info' command.
     """
-    print(f"id HivemindEngine v{self.VERSION}")
+    print(f"id HexaLogic v{self.VERSION}")
     print("Mosquito;Ladybug;Pillbug")
 
   def help(self, arguments: list[str]) -> None:
@@ -202,6 +202,7 @@ Engine version.
     :param value: Value of the restriction.
     :type value: str
     """
+    curr = time()
     if self.is_active(self.board):
       if restriction == "time":
         h, m, s = [int(t) for t in value.split(':')]
@@ -209,6 +210,7 @@ Engine version.
         print(self.brain.calculate_best_move(deepcopy(self.board), max_time=seconds))
       else:
         print(self.brain.calculate_best_move(deepcopy(self.board)))
+    print(f"Best move calculated in {time() - curr:.2f} seconds")
 
   def play(self, move: str) -> None:
     """
