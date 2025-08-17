@@ -38,7 +38,7 @@ def main():
         'numMCTSSims': 25,          
         'tempThreshold': 15,
         'updateThreshold': 0.55,
-        'arenaCompare': 20,             
+        'arenaCompare': 40,             
         'numIters': 100,                 
         'numItersForTrainExamplesHistory': 5,
         'cpuct': 0.8,

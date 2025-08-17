@@ -28,7 +28,7 @@ from inference_server import InferenceServer
 from gpu_client import GPUClient, RemoteNNet
 from functools import partial
 from HiveNNet import HiveNNet
-
+from datetime import timedelta
 
 log = logging.getLogger(__name__)
 
@@ -257,7 +257,7 @@ class Coach:
             rank = dist.get_rank()
             # a Gloo group for Python-object collectives
             ranks = list(range(world_size))
-            self.gloo_group = dist.new_group(ranks=ranks, backend="gloo")
+            self.gloo_group = dist.new_group(ranks=ranks, backend="gloo", timeout=timedelta(hours=12),)
         else:
             world_size = 1
             rank = 0
