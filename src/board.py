@@ -8,11 +8,10 @@ from typing import Dict, Optional
 from copy import deepcopy
 import dictionaries
 from collections.abc import Iterable
-# from numba import jit
 
 ACTION_SPACE_SHAPE = (28, 7, 14)
 ACTION_SPACE_SIZE = np.prod(ACTION_SPACE_SHAPE)
-MAX_TURNS = 300 # to be updated to 100
+MAX_TURNS = 100
 
 class Board():
   """
@@ -199,7 +198,6 @@ class Board():
     else:
       raise ValueError(f"The game has yet to begin")
 
-  # @jit(nopython=True)
   def stringify_move(self, move: Optional[Move], all_combinations: bool = False) -> str:
     """
     Returns a MoveString from the given move.
@@ -306,7 +304,6 @@ class Board():
         board_as_string = ":".join(encoding.astype(str).flatten().tolist())
         return board_as_string
   
-  # @jit(nopython=True)
   def encode_move_string(self, move_str: str, simple: bool = False) -> int:
     """
     Converts a move string (using BoardSpace notation) into an action index
@@ -890,9 +887,7 @@ class Board():
     wL wG1/;wL wG1-;wA1 wP/;wA1 \\bS2;wL wA1-;wA1 \\bQ;wA1 -bQ;wA1 wG1\\;wG2 /wS1;wL /wG1;wL bS2\\;wG2 bS2/;wG2 \\wG1;wB2 bS2/;wB2 \\wG1;wA2 wP/;wA2 \\bS2;wA1 -bS1;wA1 /wS2;wA1 -wQ;wA1 /bS1;wA1 wM/;wA1 \\wB1;wL \\wA1;wA2 wG1\\;wA1 wS1\\;wA1 bB2\\;wA1 bS1-;wA1 wQ/;wA1 \\wP;wS1 /bS2;wS1 wP\\;wS1 bL-;wA1 \\wS2;wB2 wP/;wB2 \\bS2;wA2 wS1\\;wA2 \\wS2;wA2 wA1/;wA1 wG1/;wA1 -bM;wA1 /bQ;wA1 wG1-;wB2 wP;wA1 /wG1;wA1 bS2\\;wA2 wG1/;wA2 wG1-;wG2 wP/;wG2 \\bS2;wA2 wA1-;wA1 bQ/;wA1 bQ-;wA1 bM/;wA1 \\wM;wA1 /bM;wA1 -wS1;wA1 /wM;wA1 bM\\;wA2 /wG1;wA2 bS2\\;wG2 wG1\\;wA1 bL\\;wG2 wA1/;wG2 wS1\\;wS2 wA1/;wA2 \\wA1;bL /bS2;bL wP\\;wB2 /wG1;wB2 bS2\\;wG2 \\wS2;wL -wS2;wG2 wG1/;wG2 wG1-;wA1 /bL;wA1 wB1\\;wA1 wS1-;wG2 /wG1;wG2 bS2\\;wG2 wA1-;wS2 bQ-;wS2 bM/;wS2 \\wM;wL /wS1;wL bS2/;wL \\wG1;wA1 bB2-;wG2 \\wA1;wA1 /bS2;wA1 wP\\;wA1 bL-;wA1 -wS2;wS1 -bM;wS1 /bQ;wA2 -wS2;wA1 /wS1;wG1 -wQ;wG1 /bS1;wG1 wM/;wG1 \\wB1;wB2 /bS2;wB2 wP\\;wB2 bL-;wL wP/;wL \\bS2;wA1 bS2/;wA1 \\wG1;wL wG1\\;wA2 /wS1;wL wS1\\;wA2 bS2/;wA2 \\wG1;wA1 wS2/;wA1 \\bB2;wL wA1/;wG2 -wS2;wL \\wS2;wB2 wG1
     """
     if move_string == Move.PASS:
-      if not self._get_valid_moves():
-        return None
-      raise ValueError(f"You can't pass when you have valid moves")
+      return None
     if (match := re.fullmatch(Move.REGEX, move_string)):
       bug_string_1, _, _, _, _, left_dir, bug_string_2, _, _, _, right_dir = match.groups()
       if not left_dir or not right_dir:
@@ -904,10 +899,7 @@ class Board():
               dir_str = f"|{right_dir}" if right_dir else ""
           direction = Direction(dir_str)
           move = Move(moved, self._pos_from_bug(moved), self._get_neighbor(relative_pos, direction))
-
-          if move in self._get_valid_moves():
-            return move
-          raise ValueError(f"'{move_string}' is not a valid move for the current board state")
+          return move
         raise ValueError(f"'{bug_string_2}' has not been played yet")
       raise ValueError(f"Only one direction at a time can be specified")
     raise ValueError(f"'{move_string}' is not a valid MoveString")

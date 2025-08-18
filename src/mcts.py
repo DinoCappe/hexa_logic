@@ -1,3 +1,4 @@
+from copy import deepcopy
 import math
 from time import time
 import numpy as np
@@ -25,33 +26,22 @@ class MCTSBrain(Brain):
         self.Es: Dict[str, float] = {}
         self.Vs: Dict[str, NDArray[np.float64]] = {}
 
-    def getActionProb(self, rawBoard: Board, temp: float = 1, max_time: Optional[float] = None) -> NDArray[np.float64]:
-        if max_time is None:
-            for _ in range(self.args.numMCTSSims):
-                self.search(rawBoard)
-        else:
-            timing = time() + max_time
-            while timing > time():
-                self.search(rawBoard)
+    def getActionProb(self, rawBoard: Board, max_time: float) -> NDArray[np.float64]:
+        timing = time() + max_time
+        while timing > time():
+            self.search(rawBoard, max_time=timing)
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
         s = rawBoard.stringRepresentation() if player == 1 else rawBoard.invert_colors().stringRepresentation()
 
         counts = [self.Nsa.get((s, a), 0) for a in range(self.game.getActionSize())]
-        if temp == 0:
-            bestAs = np.argwhere(np.array(counts) == np.max(counts)).flatten()
-            bestA = int(np.random.choice(bestAs))
-            probs = np.zeros(len(counts), dtype=np.float64)
-            probs[bestA] = 1.0
-            return probs
-
-        counts = [x ** (1.0 / temp) for x in counts]
-        total = float(sum(counts))
-        if total == 0:
-            return np.ones(len(counts), dtype=np.float64) / len(counts)
-        return np.array([x / total for x in counts], dtype=np.float64)
+        bestAs = np.argwhere(np.array(counts) == np.max(counts)).flatten()
+        bestA = int(np.random.choice(bestAs))
+        probs = np.zeros(len(counts), dtype=np.float64)
+        probs[bestA] = 1.0
+        return probs
 
     def calculate_best_move(self, board: Board, max_time: Optional[float] = None) -> str:
-        probs = self.getActionProb(board, temp=0, max_time=max_time)
+        probs = self.getActionProb(board, max_time=max_time)
         valid_moves = self.game.getValidMoves(board)
         masked_probs = probs * valid_moves
         if masked_probs.sum() > 0:
@@ -61,7 +51,7 @@ class MCTSBrain(Brain):
             best_action_index = int(np.random.choice(valid_indices))
         return board.decode_move_index(best_action_index)
 
-    def search(self, rawBoard: Board, max_time: Optional[float] = None) -> float:
+    def search(self, rawBoard: Board, max_time: float) -> float:
         player = 1 if rawBoard.current_player_color == PlayerColor.WHITE else 0
         outcome = self.game.getGameEnded(rawBoard, player)
         if outcome != 0:
@@ -71,10 +61,10 @@ class MCTSBrain(Brain):
         # Leaf node expansion
         if s not in self.Ps:
             canon = rawBoard if player == 1 else rawBoard.invert_colors()
-            if max_time is not None and time() > max_time:
+            if time() > max_time:
                 return TIMEOUT_CODE
             p_logits, v = self.nnet.predict(canon)
-            if max_time is not None and time() > max_time:
+            if time() > max_time:
                 return TIMEOUT_CODE
             valids = self.game.getValidMoves(rawBoard)
             p = p_logits * valids
@@ -99,7 +89,7 @@ class MCTSBrain(Brain):
         best_a = valid_idxs[0]
         best_u = self.Qsa.get((s,best_a), 0) + self.args.cpuct * self.Ps[s][best_a] * math.sqrt(self.Ns[s] + EPS)/(1 + self.Nsa.get((s,best_a), 0))
 
-        if max_time is not None and time() > max_time:
+        if time() > max_time:
             return TIMEOUT_CODE
         # Select action with highest UCB
         for a in valid_idxs:
@@ -111,10 +101,12 @@ class MCTSBrain(Brain):
                 best_u, best_a = u, a
 
         # Recur
-        next_raw, _ = self.game.getNextState(rawBoard, player, best_a)
-        if max_time is not None and time() > max_time:
+        move_str = rawBoard.decode_move_index(best_a)
+        new_board = deepcopy(rawBoard)
+        new_board.play(move_str)
+        if time() > max_time:
             return TIMEOUT_CODE
-        v = self.search(next_raw, max_time=max_time)
+        v = self.search(new_board, max_time=max_time)
         if v == TIMEOUT_CODE:
             return TIMEOUT_CODE
 

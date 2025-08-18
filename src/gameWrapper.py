@@ -94,8 +94,7 @@ class GameWrapper:
         """
         action_size = self.getActionSize()
         valid = np.zeros(action_size, dtype=np.float64)
-        valid_moves = board.valid_moves_complete().split(";")  
-        # print("[GET VALID MOVES] Valid moves according to the engine: ", valid_moves)
+        valid_moves = board.valid_moves_complete().split(";")
         # Iterate over each valid move and set the corresponding index to 1.0.
         for move in valid_moves:
             if move:

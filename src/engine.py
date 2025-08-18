@@ -6,7 +6,6 @@ from copy import deepcopy
 from mcts import MCTSBrain
 from HiveNNet import NNetWrapper
 from utils import dotdict
-from time import time
 import torch
 
 class Engine():
@@ -60,6 +59,8 @@ Engine version.
     while True:
       print(f"ok")
       match input().strip().split():
+        case [Command.BESTMOVE, restriction, value]:
+          self.bestmove(restriction, value)
         case [Command.INFO]:
           self.info()
         case [Command.HELP, *arguments]:
@@ -70,8 +71,6 @@ Engine version.
           self.newgame(arguments)
         case [Command.VALIDMOVES]:
           self.validmoves()
-        case [Command.BESTMOVE, restriction, value]:
-          self.bestmove(restriction, value)
         case [Command.PLAY, move]:
           self.play(move)
         case [Command.PLAY, partial_move_1, partial_move_2]:
@@ -202,15 +201,11 @@ Engine version.
     :param value: Value of the restriction.
     :type value: str
     """
-    curr = time()
-    if self.is_active(self.board):
-      if restriction == "time":
-        h, m, s = [int(t) for t in value.split(':')]
-        seconds = h * 3600 + m * 60 + s
-        print(self.brain.calculate_best_move(deepcopy(self.board), max_time=seconds))
-      else:
-        print(self.brain.calculate_best_move(deepcopy(self.board)))
-    print(f"Best move calculated in {time() - curr:.2f} seconds")
+    if restriction == "time":
+      seconds = 5
+      print(self.brain.calculate_best_move(deepcopy(self.board), max_time=seconds))
+    else:
+      print(self.brain.calculate_best_move(deepcopy(self.board)))
 
   def play(self, move: str) -> None:
     """
