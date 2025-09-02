@@ -29,7 +29,7 @@ Setting up the environment is pretty easy:
 1. Install [Anaconda](https://www.anaconda.com/download/success).
 2. Open the project root directory and run the following command:
    ```powershell
-   conda create --name <env> --file requirements.txt
+   conda create --name <env> --file conda-requirements.txt -c conda-forge
    ```
    `<env>` can be any name you want.
 
