@@ -1,5 +1,5 @@
 # This file may be used to create an environment using:
-# $ conda create --name <env> --file <this file>
+# $ conda create --name <env> --file <this file> -c conda-forge
 # platform: win-64
 # created-by: conda 24.9.2
 alabaster=1.0.0=pyhd8ed1ab_0
@@ -64,9 +64,8 @@ xz=5.2.6=h8d14728_0
 zipp=3.21.0=pyhd8ed1ab_0
 zstandard=0.23.0=py312h7606c53_1
 zstd=1.5.6=h0ea2cb4_0
-pytorch=2.5.1=py3.11_cpu_0
-pytorch-mutex=1.0=cpu
-torchaudio=2.5.1=py311_cpu
-torchvision=0.20.1=py311_cpu
-tqdm=4.67.1=pypi_0
+pytorch=2.5.1
+torchaudio=2.5.1
+torchvision=0.20.1
+tqdm=4.67.1
 
