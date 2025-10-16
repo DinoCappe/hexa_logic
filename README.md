@@ -4,11 +4,11 @@
 ---
 
 ## 🎯 Overview  
-This project was developed within the **Scuola Ortogonale Program** by the **Elicsir Foundation**, an initiative supporting selected students from Italian universities in their academic journey.  
+This project was developed within the [**Scuola Ortogonale Program**](https://www.elicsir.it/scuola-ortogonale) by the **Elicsir Foundation**, an initiative supporting selected students from Italian universities in their academic journey.  
 
-The goal was to design an agent capable of playing **Hive** competitively — first outperforming a random player, then reaching human-level play — by combining **Monte Carlo Tree Search (MCTS)** with **deep reinforcement learning**, following a simplified **AlphaZero-style** approach.
+The goal was to design an agent capable of playing **Hive** competitively — first outperforming a random player, then reaching human-level play — by combining **Monte Carlo Tree Search (MCTS)** with **deep reinforcement learning**, following a simplified [**AlphaZero-style**](https://suragnair.github.io/posts/alphazero.html) approach.
 
-The system re-implements the *AlphaZero* pipeline (*self-play → neural network training → arena evaluation*) adapted to Hive’s unique rules and **hexagonal topology**, using the **Mzinga** engine as the backend for rule enforcement and move validation.
+The system re-implements the *AlphaZero* pipeline (*self-play → neural network training → arena evaluation*) adapted to Hive’s unique rules and **hexagonal topology**, using the [**Mzinga**](https://github.com/jonthysell/Mzinga) engine as the backend for rule enforcement and move validation.
 
 ---
 
@@ -61,17 +61,18 @@ The final trained agent (`best.pth.tar`) is packaged in a **Docker container** w
 
 ---
 
-## 🚀 Running the Project  
+## Usage
 
-```bash
-# Create environment
-conda create -n hive_rl python=3.10
-conda activate hive_rl
-pip install -r requirements.txt
+There are two ways to use this Hive engine:
 
-# Run self-play and training loop
-python main.py
+1. Run [`engine.py`](/src/engine.py) from the command line or with VSCode and start using the console to interact with it.  
+   The engine will be fully functional, but there won't be any graphical interface.
+2. Use the included `HexalogicEngine.exe` (or build it yourself) along with [MzingaViewer](https://github.com/jonthysell/Mzinga/wiki/MzingaViewer).  
+   To do this, move `HexalogicEngine.exe` into the same directory as `MzingaViewer.exe` and then follow the instructions [here](https://github.com/jonthysell/Mzinga/wiki/BuildingAnEngine), specifically `step 2 > iii`.
 
+To build the `HexalogicEngine.exe` yourself, simply run the following command in the project root:
+```powershell
+pyinstaller ./src/engine.py --name HexalogicEngine --noconsole --onefile
 ```
 
 ---
