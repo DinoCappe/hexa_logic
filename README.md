@@ -1,59 +1,89 @@
-# Hivemind
+# ♟️ Hive AlphaZero Agent  
+*A deep reinforcement learning framework for the board game Hive, inspired by AlphaZero.*
 
-## Description
+---
 
-[UHP](https://github.com/jonthysell/Mzinga/wiki/UniversalHiveProtocol)-compliant [Hive](https://en.wikipedia.org/wiki/Hive_(game)) game engine in Python.  
-The game engine logic is - sometimes loosely, sometimes strongly - inspired from [Mzinga Engine](https://github.com/jonthysell/Mzinga).
+## 🎯 Overview  
+This project was developed within the **Scuola Ortogonale Program** by the **Elicsir Foundation**, an initiative supporting selected students from Italian universities in their academic journey.  
 
-The engine comes with different AI agent configurations. More on this below.
+The goal was to design an agent capable of playing **Hive** competitively — first outperforming a random player, then reaching human-level play — by combining **Monte Carlo Tree Search (MCTS)** with **deep reinforcement learning**, following a simplified **AlphaZero-style** approach.
 
-The repository includes builds for both a fully-fledged documentation generated with Sphinx and the ready-to-use `HivemindEngine.exe`.
+The system re-implements the *AlphaZero* pipeline (*self-play → neural network training → arena evaluation*) adapted to Hive’s unique rules and **hexagonal topology**, using the **Mzinga** engine as the backend for rule enforcement and move validation.
 
-## Documentation
+---
 
-The source code is fully documented with Docstrings in [reST](https://docutils.sourceforge.io/rst.html).
+## ⚙️ Architecture  
+- **Search:** Monte Carlo Tree Search with upper confidence bound (PUCT) exploration.  
+- **Policy & Value Network:** 8-layer CNN operating on a 4-plane binary board encoding (queen/others × white/black), with tile-relative move encoding.  
+- **Training Loop:** Alternates between *self-play* and *supervised updates* of the network using cross-entropy (policy) and MSE (value) losses.  
+- **Self-Play Parallelization:** Multi-process CPU pool generating episodes concurrently, with **GPU inference servers** for batched network evaluations.  
+- **Distributed Execution:** Designed to run efficiently on multi-GPU clusters (DISI HPC), with synchronized queues and fault-tolerant inference.
 
-The structured documentation can be generated with [Sphinx](https://www.sphinx-doc.org/en/master/).  
-A working build of the documentation is already included under [`docs/build/`](/docs/build/).  
-To view it, simply open [`index.html`](/docs/build/html/index.html) with a browser.
+---
 
-To build the documentation yourself, simply run the following command under [`docs/`](/docs/):
-```powershell
-make html
-``` 
+## 🧠 Learning Pipeline  
 
-## Setup
+### 1️⃣ Pre-Training  
+The network is first trained on a corpus of **5k human games** (2020–2025) using supervised imitation learning.  
+- Parallel parsing and sharded datasets.  
+- Data augmentation via board symmetries (rotations, flips).  
+- Efficient loaders with `uint8` / `float16` compression for large-scale training.
 
-Setting up the environment is pretty easy:
+### 2️⃣ Self-Play Reinforcement Learning  
+- Multiple CPU workers simulate matches using the current policy/value network.  
+- GPU inference servers compute batched predictions.  
+- Training data generated in continuous cycles.  
+- Arena evaluation retains the best-performing model.
 
-1. Install [Anaconda](https://www.anaconda.com/download/success).
-2. Open the project root directory and run the following command:
-   ```powershell
-   conda create --name <env> --file requirements.txt
-   ```
-   `<env>` can be any name you want.
+### 3️⃣ Containerized Deployment  
+The final trained agent (`best.pth.tar`) is packaged in a **Docker container** with the Mzinga engine for reproducible evaluation.
 
-The suggested IDE is [Visual Studio Code](https://code.visualstudio.com/), and settings for it are included.
+---
 
-## Usage
+## 📈 Results  
+- Stable end-to-end training pipeline (pre-training → self-play → evaluation).  
+- Generated hundreds of thousands of self-play examples within 24 hours on the cluster.  
+- The network learns non-trivial positional heuristics and achieves a **~60% win rate** vs. random agent.  
+- Awarded the **“Lee Sedol Prize”** by the *Elicsir Foundation* for innovative use of reinforcement learning in Hive.
 
-There are two ways to use this Hive engine:
+---
 
-1. Run [`engine.py`](/src/engine.py) from the command line or with VSCode and start using the console to interact with it.  
-   The engine will be fully functional, but there won't be any graphical interface.
-2. Use the included `HivemindEngine.exe` (or build it yourself) along with [MzingaViewer](https://github.com/jonthysell/Mzinga/wiki/MzingaViewer).  
-   To do this, move `HivemindEngine.exe` into the same directory as `MzingaViewer.exe` and then follow the instructions [here](https://github.com/jonthysell/Mzinga/wiki/BuildingAnEngine), specifically `step 2 > iii`.
+## 🧩 Implementation Highlights  
 
-To build the `HivemindEngine.exe` yourself, simply run the following command in the project root:
-```powershell
-pyinstaller ./src/engine.py --name HivemindEngine --noconsole --onefile
+| Component | Description |
+|------------|-------------|
+| **Board Encoding** | 4-plane binary representation (queen/others × color). |
+| **Move Encoding** | Tile-relative indexing (28 × 14 × 7 + 1 = 2745 possible moves). |
+| **Network** | 8-layer CNN predicting policy and value jointly. |
+| **Optimization** | Adam optimizer, learning rate scheduling, early stopping on arena results. |
+| **Parallelism** | Multiprocessing + GPU inference queues (NCCL/Gloo backend). |
+| **Frameworks** | PyTorch • AlphaZero General • Mzinga • Docker • Python 3.10 |
+
+---
+
+## 🚀 Running the Project  
+
+```bash
+# Create environment
+conda create -n hive_rl python=3.10
+conda activate hive_rl
+pip install -r requirements.txt
+
+# Run self-play and training loop
+python main.py
+
 ```
 
-## AI
+---
 
-There are currently 2 implemented AI strategies:
+## 📚 References  
+- Goede et al., *The Cost of Reinforcement Learning for Game Engines: The AZ-Hive Case Study (2022).*  
+- Surag Nair, *AlphaZero General Framework.*  
+- Jon Thysell, *Mzinga: Open-Source Hive Engine.*
 
-1. Random: the agent plays random moves.
-2. Minmax: the agent plays moves following a Minmax policy with alpha-beta pruning and a custom node (game state) evaluation.
+---
 
-A third implementation will come in the future that will leverage machine learning.
+## 👥 Authors  
+**Nancy Kalaj** & **Ludovico Cappellato**  
+Developed for the *Scuola Ortogonale 2024/25* by the *Elicsir Foundation*.  
+Awarded the **“Lee Sedol Prize”** for innovative use of deep reinforcement learning.
